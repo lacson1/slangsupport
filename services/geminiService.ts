@@ -24,7 +24,7 @@ const definitionSchema = {
 
 export const getSlangDefinition = async (term: string): Promise<SlangDefinition> => {
   try {
-    const prompt = `Define the slang term or abbreviation: "${term}". Explain its meaning and provide an example of its use in a sentence. If the term is nonsensical or not a real slang/abbreviation, state that you couldn't find a definition.`;
+    const prompt = `Define the slang term or abbreviation: "${term}". Explain its meaning and provide an example of its use in a sentence. If the term is nonsensical or not a real slang/abbreviation, please return a "meaning" that explicitly states you could not find a definition for the term, and an "example" that is "N/A".`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -41,10 +41,18 @@ export const getSlangDefinition = async (term: string): Promise<SlangDefinition>
     if (!parsedResponse.meaning || !parsedResponse.example) {
       throw new Error("Invalid response structure from API.");
     }
+
+    const lowerCaseMeaning = parsedResponse.meaning.toLowerCase();
+    if (lowerCaseMeaning.includes("could not find a definition") || lowerCaseMeaning.includes("couldn't find a definition")) {
+      throw new Error(`Term not found: ${term}`);
+    }
     
     return parsedResponse;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching slang definition:", error);
+    if (error.message?.startsWith('Term not found:')) {
+        throw error;
+    }
     throw new Error("Failed to get definition. The term might be invalid or there was a network issue.");
   }
 };

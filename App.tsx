@@ -315,20 +315,25 @@ export default function App() {
       return;
     }
 
+    const trimmedTerm = termToSearch.trim();
     setIsLoading(true);
     setError(null);
     setDefinition(null);
     setIsAudioReady(false);
     setPrefetchedAudioChunks([]);
     setIsInitialState(false);
-    setSubmittedTerm(termToSearch);
+    setSubmittedTerm(trimmedTerm);
 
     try {
-      const result = await getSlangDefinition(termToSearch.trim());
+      const result = await getSlangDefinition(trimmedTerm);
       setDefinition(result);
-      prefetchAudio(termToSearch.trim(), result);
+      prefetchAudio(trimmedTerm, result);
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      if (err.message?.startsWith('Term not found:')) {
+        setError(`Sorry, we couldn't find a definition for "${trimmedTerm}". Try another?`);
+      } else {
+        setError(err.message || 'An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }
