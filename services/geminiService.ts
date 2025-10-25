@@ -39,9 +39,25 @@ const definitionSchema = {
         items: {
             type: Type.STRING
         }
+    },
+    oppositeTerms: {
+        type: Type.ARRAY,
+        description: "A list of 2-3 terms that are opposite in meaning. If no direct opposites exist, this should be an empty array.",
+        items: {
+            type: Type.STRING
+        }
+    },
+    origin: {
+        type: Type.STRING,
+        description: "A brief, one or two-sentence explanation of the term's origin or etymology."
+    },
+    popularity: {
+        type: Type.STRING,
+        description: "A single-word classification of the term's current popularity. Must be one of: 'Trending Up', 'Established', 'Fading', or 'Niche'.",
+        enum: ['Trending Up', 'Established', 'Fading', 'Niche']
     }
   },
-  required: ['meaning', 'example', 'vibe', 'relatedTerms'],
+  required: ['meaning', 'example', 'vibe', 'relatedTerms', 'oppositeTerms', 'origin', 'popularity'],
 };
 
 export const getSlangDefinition = async (term: string): Promise<SlangDefinition> => {
@@ -53,6 +69,9 @@ export const getSlangDefinition = async (term: string): Promise<SlangDefinition>
     2.  An example sentence ("example").
     3.  A "vibe" analysis, including a short "formality" classification and a one-sentence "description" of its social context.
     4.  A list of 3-5 "relatedTerms".
+    5.  A list of 2-3 "oppositeTerms" (antonyms or terms with opposite connotations). If none exist, provide an empty array.
+    6.  A brief "origin" story or etymology (1-2 sentences).
+    7.  A "popularity" classification from the following options only: 'Trending Up', 'Established', 'Fading', 'Niche'.
 
     If the term is nonsensical, not real slang, or you cannot find a definition, your response must explicitly state this in the "meaning" field, with other fields being "N/A" or empty arrays.`;
 
@@ -91,9 +110,8 @@ export const getSpeech = async (text: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      // FIX: Use the full, explicit Content object structure, specifying the role.
-      // This resolves ambiguity and ensures the TTS model correctly processes the request.
-      contents: [{ role: 'user', parts: [{ text }] }],
+      // Fix: The `contents` field for a TTS request should not include a `role`.
+      contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
@@ -107,7 +125,6 @@ export const getSpeech = async (text: string): Promise<string> => {
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
     if (!base64Audio) {
-      // Add more detailed logging for debugging when no audio is returned.
       const textResponse = response.text;
       if (textResponse) {
           console.error("TTS API returned a text response instead of audio:", textResponse);
@@ -121,7 +138,6 @@ export const getSpeech = async (text: string): Promise<string> => {
     return base64Audio;
   } catch (error: any) {
     console.error("Error generating speech:", error);
-    // FIX: Propagate the actual error message instead of a generic one.
     throw new Error(error.message || "Failed to generate speech.");
   }
 };

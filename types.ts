@@ -6,4 +6,7 @@ export interface SlangDefinition {
     description: string;
   };
   relatedTerms: string[];
+  oppositeTerms: string[];
+  origin: string;
+  popularity: 'Trending Up' | 'Established' | 'Fading' | 'Niche';
 }

@@ -2,27 +2,33 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { getSlangDefinition, getSpeech } from './services/geminiService';
 import { SlangDefinition } from './types';
 
-// FIX: Update type definitions for the Web Speech API to use addEventListener
+// Type definitions for Speech Recognition API
 interface SpeechRecognitionEvent extends Event {
     results: SpeechRecognitionResultList;
 }
-
 interface SpeechRecognitionErrorEvent extends Event {
     error: string;
 }
-
-interface SpeechRecognition {
+interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   lang: string;
   interimResults: boolean;
   start: () => void;
   stop: () => void;
-  addEventListener: (type: 'result' | 'error' | 'end', listener: (event: any) => void) => void;
-  removeEventListener: (type: 'result' | 'error' | 'end', listener: (event: any) => void) => void;
+  // Adjusted to use a generic EventListener type for broader compatibility
+  addEventListener: (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => void;
+  removeEventListener: (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => void;
+}
+
+// Fix: Correctly define SpeechRecognition properties on the Window interface to resolve TypeScript errors.
+interface Window {
+  SpeechRecognition: { new(): SpeechRecognition };
+  webkitSpeechRecognition: { new(): SpeechRecognition };
 }
 
 
-// --- Audio Helper Functions from Gemini Docs ---
+// --- AUDIO UTILITY FUNCTIONS ---
+
 function decode(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -42,7 +48,6 @@ async function decodeAudioData(
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
     for (let i = 0; i < frameCount; i++) {
@@ -51,8 +56,9 @@ async function decodeAudioData(
   }
   return buffer;
 }
-// ---------------------------------------------
 
+
+// --- SVG ICONS ---
 
 const Logo: React.FC = () => (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-cyan-400">
@@ -63,12 +69,7 @@ const Logo: React.FC = () => (
   </svg>
 );
 
-const SpeakerIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className || "w-6 h-6"}>
-        <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.66 1.905H6.44l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" />
-        <path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" />
-    </svg>
-);
+const SpeakerIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className || "w-6 h-6"}> <path d="M13.5 4.06c0-1.336-1.616-2.005-2.56-1.06l-4.5 4.5H4.508c-1.141 0-2.318.664-2.66 1.905A9.76 9.76 0 001.5 12c0 .898.121 1.768.35 2.595.341 1.24 1.518 1.905 2.66 1.905H6.44l4.5 4.5c.944.945 2.56.276 2.56-1.06V4.06zM18.584 5.106a.75.75 0 011.06 0c3.808 3.807 3.808 9.98 0 13.788a.75.75 0 11-1.06-1.06 8.25 8.25 0 000-11.668.75.75 0 010-1.06z" /> <path d="M15.932 7.757a.75.75 0 011.061 0 6 6 0 010 8.486.75.75 0 01-1.06-1.061 4.5 4.5 0 000-6.364.75.75 0 010-1.06z" /> </svg> );
 
 const StopIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className || "w-6 h-6"}>
@@ -78,594 +79,425 @@ const StopIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const MicrophoneIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className || "w-6 h-6"}>
-      <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
-      <path d="M6 10.5a.75.75 0 01.75.75v1.5a5.25 5.25 0 1010.5 0v-1.5a.75.75 0 011.5 0v1.5a6.75 6.75 0 11-13.5 0v-1.5A.75.75 0 016 10.5z" />
-      <path d="M12 18.75a.75.75 0 01.75.75v.008a.75.75 0 01-1.5 0V19.5a.75.75 0 01.75-.75z" />
+        <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
+        <path d="M6 10.5a.75.75 0 01.75.75v1.5a5.25 5.25 0 1010.5 0v-1.5a.75.75 0 011.5 0v1.5a6.75 6.75 0 11-13.5 0v-1.5A.75.75 0 016 10.5z" />
     </svg>
 );
 
-const RefreshIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-5 h-5"}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.181-3.183m-4.991-2.696a8.25 8.25 0 00-11.664 0l-3.181 3.183" />
+const StarIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+    </svg>
+);
+
+const FilledStarIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className || "w-6 h-6"}>
+        <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
     </svg>
 );
 
 
-interface InputFormProps {
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
-  handleSubmit: (event: React.FormEvent) => void;
-  isLoading: boolean;
-  isListening: boolean;
-  onMicClick: () => void;
-  micSupported: boolean;
-}
+// --- UI COMPONENTS ---
 
-const InputForm: React.FC<InputFormProps> = ({ searchTerm, setSearchTerm, handleSubmit, isLoading, isListening, onMicClick, micSupported }) => (
-  <form onSubmit={handleSubmit} className="w-full max-w-2xl flex flex-col sm:flex-row gap-3">
-    <div className="relative flex-grow w-full">
-        <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={isListening ? "Listening..." : "e.g., 'rizz', 'iykyk', 'based'"}
-            className="w-full px-4 py-3 sm:px-5 text-base sm:text-lg text-white bg-gray-800 border-2 border-gray-700 rounded-full focus:ring-4 focus:ring-cyan-500/50 focus:border-cyan-500 focus:outline-none transition-all duration-300 placeholder-gray-500 pr-12 sm:pr-14"
-            disabled={isLoading || isListening}
-        />
-        {micSupported && (
-            <button
-            type="button"
-            onClick={onMicClick}
-            disabled={isLoading}
-            className={`absolute top-1/2 right-2 transform -translate-y-1/2 p-2 rounded-full text-gray-400 hover:text-cyan-400 transition-all duration-300 focus:outline-none disabled:text-gray-600 disabled:cursor-not-allowed ${isListening ? 'text-cyan-400 animate-listening' : ''}`}
-            aria-label="Search by voice"
-            >
-            <MicrophoneIcon className="w-6 h-6" />
-            </button>
-        )}
-    </div>
-    <button
-      type="submit"
-      disabled={isLoading || isListening}
-      className="px-6 sm:px-8 py-3 text-base sm:text-lg font-bold text-white bg-cyan-600 rounded-full hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
-    >
-      {isLoading ? 'Searching...' : 'Define'}
-    </button>
-  </form>
-);
-
-const VibeTag: React.FC<{ formality: string }> = ({ formality }) => {
-    const formalityLower = formality.toLowerCase();
-    let colorClasses = 'bg-gray-600 text-gray-200';
-    if (formalityLower.includes('casual')) {
-        colorClasses = 'bg-blue-600 text-blue-100';
-    } else if (formalityLower.includes('online') || formalityLower.includes('ironic')) {
-        colorClasses = 'bg-purple-600 text-purple-100';
-    } else if (formalityLower.includes('formal')) {
-        colorClasses = 'bg-green-600 text-green-100';
-    }
+const PopularityMeter: React.FC<{ popularity: SlangDefinition['popularity'] }> = ({ popularity }) => {
+    const popularityStyles = {
+        'Trending Up': { width: '100%', color: 'bg-emerald-500', label: 'Trending Up' },
+        'Established': { width: '75%', color: 'bg-sky-500', label: 'Established' },
+        'Fading': { width: '40%', color: 'bg-amber-500', label: 'Fading' },
+        'Niche': { width: '25%', color: 'bg-purple-500', label: 'Niche' },
+    };
+    const style = popularityStyles[popularity] || { width: '0%', color: 'bg-gray-500', label: 'Unknown' };
 
     return (
-        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${colorClasses}`}>
-            {formality}
-        </span>
-    );
-};
-
-interface ResultDisplayProps {
-  term: string;
-  definition: SlangDefinition;
-  onSpeak: () => void;
-  isSpeaking: boolean;
-  isAudioReady: boolean;
-  onRelatedTermClick: (term: string) => void;
-}
-
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ term, definition, onSpeak, isSpeaking, isAudioReady, onRelatedTermClick }) => {
-    return (
-      <div className="w-full max-w-2xl mt-8 p-4 sm:p-6 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-xl animate-fade-in">
-        <div className="flex justify-between items-start mb-4 gap-4">
-            <h2 className="text-2xl sm:text-3xl font-bold text-cyan-400 break-words capitalize flex-grow">{term}</h2>
-            <button 
-                onClick={onSpeak} 
-                disabled={!isAudioReady}
-                className="p-2 rounded-full text-gray-400 enabled:hover:text-cyan-400 enabled:hover:bg-gray-700/50 disabled:text-gray-600 disabled:cursor-wait transition-colors flex-shrink-0"
-                aria-label={isSpeaking ? "Stop reading" : "Read definition aloud"}
-            >
-                {isSpeaking ? <StopIcon /> : <SpeakerIcon />}
-            </button>
-        </div>
-        
-        {definition.vibe && (
-            <div className="mb-6 p-3 bg-gray-900/40 rounded-lg">
-              <h3 className="text-sm font-semibold text-gray-400 mb-2 flex items-center gap-2">
-                Vibe Check
-                <VibeTag formality={definition.vibe.formality} />
-              </h3>
-              <p className="text-base text-gray-300">{definition.vibe.description}</p>
-            </div>
-        )}
-
         <div>
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-300 mb-2">Meaning</h3>
-          <p className="text-base sm:text-lg text-gray-200 leading-relaxed">{definition.meaning}</p>
-        </div>
-        <div className="mt-6">
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-300 mb-2">Example</h3>
-          <p className="text-base sm:text-lg text-gray-200 leading-relaxed italic border-l-4 border-cyan-500 pl-4">"{definition.example}"</p>
-        </div>
-
-        {definition.relatedTerms && definition.relatedTerms.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-700">
-                <h3 className="text-base font-semibold text-gray-400 mb-2">Related Terms</h3>
-                <div className="flex flex-wrap gap-2">
-                    {definition.relatedTerms.map(relatedTerm => (
-                        <button
-                            key={relatedTerm}
-                            onClick={() => onRelatedTermClick(relatedTerm)}
-                            className="px-3 py-1 text-sm text-cyan-300 bg-gray-700/50 rounded-full hover:bg-gray-700 hover:text-cyan-200 transition-colors"
-                        >
-                            {relatedTerm}
-                        </button>
-                    ))}
-                </div>
+            <span className="text-sm font-medium text-gray-400">{style.label}</span>
+            <div className="w-full bg-gray-700 rounded-full h-2.5 mt-1">
+                <div className={`${style.color} h-2.5 rounded-full transition-all duration-500`} style={{ width: style.width }}></div>
             </div>
-        )}
-      </div>
+        </div>
     );
 };
 
-const LoadingSpinner: React.FC = () => (
-    <div className="w-full max-w-2xl mt-8 flex justify-center items-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-500"></div>
+const ResultDisplay: React.FC<{
+    term: string;
+    definition: SlangDefinition;
+    onPlayAudio: (text: string) => void;
+    onStopAudio: () => void;
+    isPlaying: boolean;
+    onSelectRelated: (term: string) => void;
+    isFavorite: boolean;
+    onToggleFavorite: () => void;
+}> = ({ term, definition, onPlayAudio, onStopAudio, isPlaying, onSelectRelated, isFavorite, onToggleFavorite }) => {
+    const fullTextForSpeech = `${term}. Meaning: ${definition.meaning}. For example: ${definition.example}`;
+    const vibeColor = 'bg-cyan-900/50 text-cyan-300';
+
+    return (
+        <div className="bg-gray-800/50 rounded-xl shadow-lg backdrop-blur-sm p-6 animate-fade-in">
+            <div className="flex justify-between items-start">
+                <div>
+                    <h2 className="text-3xl font-bold text-white capitalize">{term}</h2>
+                    <div className={`inline-flex items-center px-3 py-1 mt-2 text-sm font-medium rounded-full ${vibeColor}`}>
+                        {definition.vibe.formality}
+                    </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={() => isPlaying ? onStopAudio() : onPlayAudio(fullTextForSpeech)}
+                        className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+                        aria-label={isPlaying ? 'Stop audio' : 'Play audio'}
+                    >
+                        {isPlaying ? <StopIcon className="w-6 h-6 text-cyan-400" /> : <SpeakerIcon className="w-6 h-6" />}
+                    </button>
+                    <button
+                        onClick={onToggleFavorite}
+                        className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700"
+                        aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                        {isFavorite ? <FilledStarIcon className="w-6 h-6 text-yellow-400" /> : <StarIcon className="w-6 h-6" />}
+                    </button>
+                </div>
+            </div>
+
+            <div className="mt-4 space-y-6">
+                <div>
+                    <h3 className="text-lg font-semibold text-cyan-400">Meaning</h3>
+                    <p className="text-gray-300 mt-1">{definition.meaning}</p>
+                </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-cyan-400">Example</h3>
+                    <p className="text-gray-300 mt-1 italic">"{definition.example}"</p>
+                </div>
+                 <div>
+                    <h3 className="text-lg font-semibold text-cyan-400">Vibe Check</h3>
+                    <p className="text-gray-300 mt-1">{definition.vibe.description}</p>
+                </div>
+                 <div>
+                    <h3 className="text-lg font-semibold text-cyan-400">Origin</h3>
+                    <p className="text-gray-300 mt-1">{definition.origin}</p>
+                </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-cyan-400">Popularity</h3>
+                    <PopularityMeter popularity={definition.popularity} />
+                </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-cyan-400">Related Terms</h3>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {definition.relatedTerms.map(relatedTerm => (
+                            <button
+                                key={relatedTerm}
+                                onClick={() => onSelectRelated(relatedTerm)}
+                                className="px-3 py-1 bg-gray-700 hover:bg-cyan-500 text-gray-300 hover:text-white rounded-full text-sm transition-colors"
+                            >
+                                {relatedTerm}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                {definition.oppositeTerms && definition.oppositeTerms.length > 0 && (
+                  <div>
+                      <h3 className="text-lg font-semibold text-cyan-400">Opposite in Meaning</h3>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                          {definition.oppositeTerms.map(oppositeTerm => (
+                              <button
+                                  key={oppositeTerm}
+                                  onClick={() => onSelectRelated(oppositeTerm)}
+                                  className="px-3 py-1 bg-gray-700 hover:bg-rose-500 text-gray-300 hover:text-white rounded-full text-sm transition-colors"
+                              >
+                                  {oppositeTerm}
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const HistoryOrFavorites: React.FC<{
+    items: string[];
+    title: string;
+    onSelect: (item: string) => void;
+    onClear?: () => void;
+}> = ({ items, title, onSelect, onClear }) => (
+    <div className="bg-gray-800/50 rounded-xl shadow-lg p-6 animate-fade-in">
+        <div className="flex justify-between items-center">
+            <h3 className="text-xl font-bold text-white">{title}</h3>
+            {onClear && items.length > 0 && (
+                <button onClick={onClear} className="text-sm text-cyan-400 hover:underline">Clear All</button>
+            )}
+        </div>
+        {items.length > 0 ? (
+            <ul className="mt-4 space-y-2">
+                {items.map(item => (
+                    <li key={item}>
+                        <button onClick={() => onSelect(item)} className="w-full text-left p-2 rounded-md text-gray-300 hover:bg-gray-700 transition-colors">
+                            {item}
+                        </button>
+                    </li>
+                ))}
+            </ul>
+        ) : (
+            <p className="text-gray-500 mt-4">No {title.toLowerCase()} yet.</p>
+        )}
     </div>
 );
 
-interface InitialStateDisplayProps {
-    examples: string[];
-    onExampleClick: (example: string) => void;
-    onRefresh: () => void;
-    onToggleShowMore: () => void;
-    showAll: boolean;
-}
-
-const InitialStateDisplay: React.FC<InitialStateDisplayProps> = ({ examples, onExampleClick, onRefresh, onToggleShowMore, showAll }) => {
-    return (
-        <div className="text-center mt-8 text-gray-400 max-w-2xl animate-fade-in">
-            <h2 className="text-2xl font-bold text-white mb-2">Unlock Modern Language</h2>
-            <p className="text-lg">Enter a slang word, abbreviation, or internet term to get its definition and see it in action.</p>
-            <div className="mt-6">
-                <div className="flex justify-center items-center gap-4 mb-3">
-                    <p className="text-sm text-gray-500">Or try one of these popular terms:</p>
-                    <button onClick={onRefresh} className="text-gray-500 hover:text-cyan-400 transition-colors" aria-label="Refresh examples">
-                        <RefreshIcon />
-                    </button>
-                    <button onClick={onToggleShowMore} className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors font-medium" aria-label={showAll ? "Show fewer examples" : "Show more examples"}>
-                        {showAll ? 'Show Less' : 'Show More'}
-                    </button>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {examples.map(ex => (
-                    <button 
-                      key={ex}
-                      onClick={() => onExampleClick(ex)}
-                      className="px-3 py-1 text-sm text-cyan-300 bg-gray-800 border border-gray-700 rounded-full hover:bg-gray-700 hover:text-cyan-200 transition-colors"
-                    >
-                      {ex}
-                    </button>
-                  ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-interface SearchHistoryProps {
-    history: string[];
-    onHistoryClick: (term: string) => void;
-    onClear: () => void;
-}
-
-const SearchHistory: React.FC<SearchHistoryProps> = ({ history, onHistoryClick, onClear }) => {
-    if (history.length === 0) return null;
-    return (
-        <div className="w-full max-w-2xl mt-6 animate-fade-in">
-            <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Search History</h3>
-                <button onClick={onClear} className="text-xs text-gray-500 hover:text-red-400 transition-colors">Clear</button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-                {history.map(term => (
-                    <button
-                        key={term}
-                        onClick={() => onHistoryClick(term)}
-                        className="px-3 py-1 text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded-full hover:bg-gray-700 hover:text-cyan-300 transition-colors"
-                    >
-                        {term}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-
-const ALL_EXAMPLES = [
-    'rizz', 'iykyk', 'based', 'GOAT', 'no cap', 'bet', 'slay', 'ghosting', 
-    'salty', 'drip', 'finna', 'simp', 'TFW', 'boujee', 'stan', 'mid', 'L', 
-    'W', 'pog', 'copium', 'delulu', 'sheesh', 'yeet', 'vibe check'
-];
-const EXAMPLES_TO_SHOW = 15;
-const MAX_HISTORY_LENGTH = 10;
-
-const shuffleArray = (array: string[]) => {
-    let currentIndex = array.length, randomIndex;
-    while (currentIndex !== 0) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex--;
-        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-    }
-    return array;
-}
-
-
-export default function App() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [definition, setDefinition] = useState<SlangDefinition | null>(null);
-  const [submittedTerm, setSubmittedTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isInitialState, setIsInitialState] = useState(true);
-  
-  // --- Audio State ---
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const [prefetchedAudioChunks, setPrefetchedAudioChunks] = useState<(AudioBuffer | null)[]>([]);
-  const [isAudioReady, setIsAudioReady] = useState(false);
-  const currentlyPlayingSourceRef = useRef<AudioBufferSourceNode | null>(null);
-
-  // --- Mic State ---
-  const [isListening, setIsListening] = useState(false);
-  const [micSupported, setMicSupported] = useState(true);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  
-  // --- Examples State ---
-  const [shuffledExamples, setShuffledExamples] = useState<string[]>([]);
-  const [showAllExamples, setShowAllExamples] = useState(false);
-
-  // --- History State ---
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
-
-  const refreshExamples = useCallback(() => {
-    setShuffledExamples(shuffleArray([...ALL_EXAMPLES]));
-  }, []);
-
-  const handleToggleShowMore = () => {
-    setShowAllExamples(prev => !prev);
-  };
-
-  useEffect(() => {
-    refreshExamples();
-    try {
-        const storedHistory = localStorage.getItem('slangSearchHistory');
-        if (storedHistory) {
-            setSearchHistory(JSON.parse(storedHistory));
+const SlangOfTheDay: React.FC<{ onSearch: (term: string) => void }> = ({ onSearch }) => {
+    useEffect(() => {
+        const terms = ['rizz', 'cap', 'based', 'GOAT', 'mid', 'no-life'];
+        const today = new Date().toDateString();
+        const storedDay = localStorage.getItem('slangOfDay_date');
+        
+        let term;
+        if (storedDay === today) {
+            term = localStorage.getItem('slangOfDay_term');
+        } else {
+            term = terms[Math.floor(Math.random() * terms.length)];
+            localStorage.setItem('slangOfDay_date', today);
+            localStorage.setItem('slangOfDay_term', term);
         }
-    } catch (e) {
-        console.error("Failed to parse search history from localStorage", e);
-    }
-  }, [refreshExamples]);
 
-  useEffect(() => {
-    const context = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    setAudioContext(context);
-    return () => {
-      context.close();
-    };
-  }, []);
+        if (term) onSearch(term);
+    }, [onSearch]);
 
-  const prefetchAudio = useCallback(async (term: string, definition: SlangDefinition) => {
-    if (!audioContext) return;
+    return (
+        <div className="text-center p-6 bg-gray-800/50 rounded-xl">
+             <h2 className="text-xl font-bold text-cyan-400">Slang of the Day</h2>
+             <p className="text-gray-400 mt-2">Loading today's term...</p>
+        </div>
+    );
+};
+
+
+// --- MAIN APP COMPONENT ---
+
+const App: React.FC = () => {
+    const [searchTerm, setSearchTerm] = useState<string>('');
+    const [definition, setDefinition] = useState<SlangDefinition | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const [isPlaying, setIsPlaying] = useState<boolean>(false);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     
-    const textToSpeak = `${term}. Meaning: ${definition.meaning}. Example: ${definition.example}`;
-    const textChunks = textToSpeak.match(/[^.!?]+[.!?]+/g) || [textToSpeak];
+    const [isListening, setIsListening] = useState<boolean>(false);
+    const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-    setPrefetchedAudioChunks(new Array(textChunks.length).fill(null));
+    const [searchHistory, setSearchHistory] = useState<string[]>([]);
+    const [favorites, setFavorites] = useState<Record<string, SlangDefinition>>({});
+    const [activeTab, setActiveTab] = useState<'search' | 'history' | 'favorites'>('search');
+    const [initialLoad, setInitialLoad] = useState<boolean>(true);
 
-    textChunks.forEach(async (chunk, index) => {
+
+    useEffect(() => {
         try {
-            const base64Audio = await getSpeech(chunk.trim());
-            if (base64Audio && audioContext) {
-                const audioBuffer = await decodeAudioData(
-                    decode(base64Audio),
-                    audioContext,
-                    24000,
-                    1,
-                );
-                setPrefetchedAudioChunks(prev => {
-                    const newChunks = [...prev];
-                    newChunks[index] = audioBuffer;
-                    if (index === 0) {
-                        setIsAudioReady(true);
-                    }
-                    return newChunks;
-                });
-            }
-        } catch (err) {
-            console.error(`Audio prefetch for chunk ${index} failed:`, err);
+            const storedHistory = localStorage.getItem('slangSearchHistory');
+            if (storedHistory) setSearchHistory(JSON.parse(storedHistory));
+            const storedFavorites = localStorage.getItem('slangFavorites');
+            if (storedFavorites) setFavorites(JSON.parse(storedFavorites));
+        } catch (e) {
+            console.error("Failed to load data from localStorage", e);
         }
-    });
-  }, [audioContext]);
+    }, []);
 
-  const updateSearchHistory = (term: string) => {
-    setSearchHistory(prevHistory => {
-        const lowerCaseTerm = term.toLowerCase();
-        const newHistory = [
-            lowerCaseTerm,
-            ...prevHistory.filter(item => item.toLowerCase() !== lowerCaseTerm)
-        ].slice(0, MAX_HISTORY_LENGTH);
+    const handleSearch = useCallback(async (termToSearch: string) => {
+        if (!termToSearch.trim()) return;
+
+        setIsLoading(true);
+        setError(null);
+        setDefinition(null);
+        setActiveTab('search');
+        setInitialLoad(false);
         
         try {
-            localStorage.setItem('slangSearchHistory', JSON.stringify(newHistory));
-        } catch (e) {
-            console.error("Failed to save search history to localStorage", e);
+            const result = await getSlangDefinition(termToSearch.trim().toLowerCase());
+            setDefinition(result);
+            // Update history
+            setSearchHistory(prev => {
+                const newHistory = [termToSearch.trim().toLowerCase(), ...prev.filter(t => t !== termToSearch.trim().toLowerCase())].slice(0, 10);
+                localStorage.setItem('slangSearchHistory', JSON.stringify(newHistory));
+                return newHistory;
+            });
+        } catch (err: any) {
+            setError(err.message || 'An unexpected error occurred.');
+        } finally {
+            setIsLoading(false);
         }
-        return newHistory;
-    });
-  };
+    }, []);
 
-  const performSearch = useCallback(async (termToSearch: string) => {
-    if (!termToSearch.trim()) {
-      setError("Please enter a term to search.");
-      return;
-    }
+    const handlePlayAudio = useCallback(async (text: string) => {
+        if (isPlaying) audioSourceRef.current?.stop();
+        setIsPlaying(true);
+        try {
+            const audioData = await getSpeech(text);
+            const audioBytes = decode(audioData);
 
-    const trimmedTerm = termToSearch.trim();
-    setIsLoading(true);
-    setError(null);
-    setDefinition(null);
-    setIsAudioReady(false);
-    setPrefetchedAudioChunks([]);
-    setIsInitialState(false);
-    setSubmittedTerm(trimmedTerm);
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            }
+            const ctx = audioContextRef.current;
+            const audioBuffer = await decodeAudioData(audioBytes, ctx, 24000, 1);
 
-    try {
-      const result = await getSlangDefinition(trimmedTerm);
-      setDefinition(result);
-      prefetchAudio(trimmedTerm, result);
-      updateSearchHistory(trimmedTerm);
-    } catch (err: any) {
-      if (err.message?.startsWith('Term not found:')) {
-        setError(`Sorry, we couldn't find a definition for "${trimmedTerm}". Try another?`);
-      } else {
-        setError(err.message || 'An unexpected error occurred.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [prefetchAudio]);
-
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setMicSupported(false);
-      console.warn("Speech recognition not supported in this browser.");
-      return;
-    }
-
-    if (!recognitionRef.current) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.lang = 'en-US';
-        recognitionRef.current.interimResults = false;
-    }
+            const source = ctx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(ctx.destination);
+            source.start();
+            source.onended = () => setIsPlaying(false);
+            audioSourceRef.current = source;
+        } catch (err: any) {
+            console.error("Audio prefetch for chunk 0 failed:", err);
+            setError("Failed to generate speech. " + err.message);
+            setIsPlaying(false);
+        }
+    }, [isPlaying]);
     
-    const recognition = recognitionRef.current;
+    const handleStopAudio = useCallback(() => {
+        audioSourceRef.current?.stop();
+        setIsPlaying(false);
+    }, []);
 
-    const handleResult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setSearchTerm(transcript);
-      performSearch(transcript);
-    };
-
-    const handleError = (event: SpeechRecognitionErrorEvent) => {
-      if (event.error === 'not-allowed') {
-        setError('Microphone access was denied. Please allow it in your browser settings to use voice search.');
-      } else {
-        setError(`Speech recognition error: ${event.error}. Please try again.`);
-      }
-      setIsListening(false);
-    };
-
-    const handleEnd = () => {
-      setIsListening(false);
-    };
-    
-    recognition.addEventListener('result', handleResult);
-    recognition.addEventListener('error', handleError);
-    recognition.addEventListener('end', handleEnd);
-
-    return () => {
-      recognition.removeEventListener('result', handleResult);
-      recognition.removeEventListener('error', handleError);
-      recognition.removeEventListener('end', handleEnd);
-    };
-  }, [performSearch]);
-
-
-  const handleSubmit = useCallback(async (event: React.FormEvent) => {
-    event.preventDefault();
-    performSearch(searchTerm);
-  }, [searchTerm, performSearch]);
-
-  const handleExampleClick = useCallback((exampleTerm: string) => {
-    setSearchTerm(exampleTerm);
-    performSearch(exampleTerm);
-  }, [performSearch]);
-  
-  const playAudioQueue = useCallback(() => {
-    if (!audioContext) return;
-
-    const playNext = (index: number) => {
-        if (index >= prefetchedAudioChunks.length) {
-            setIsSpeaking(false);
-            currentlyPlayingSourceRef.current = null;
+    const handleVoiceSearch = () => {
+        const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognitionAPI) {
+            setError("Voice search is not supported by your browser.");
+            return;
+        }
+        
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
             return;
         }
 
-        const buffer = prefetchedAudioChunks[index];
-        if (buffer) {
-            const source = audioContext.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioContext.destination);
-            source.start();
-            currentlyPlayingSourceRef.current = source;
-            source.onended = () => playNext(index + 1);
-        } else {
-            setTimeout(() => playNext(index), 200);
-        }
-    }
-    playNext(0);
-}, [audioContext, prefetchedAudioChunks]);
+        const recognition = new SpeechRecognitionAPI();
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognitionRef.current = recognition;
 
-  const handleSpeak = useCallback(() => {
-      if (!audioContext || !isAudioReady) return;
-
-      if (isSpeaking) {
-          if (currentlyPlayingSourceRef.current) {
-              currentlyPlayingSourceRef.current.onended = null;
-              currentlyPlayingSourceRef.current.stop();
-              currentlyPlayingSourceRef.current = null;
-          }
-          setIsSpeaking(false);
-      } else {
-          if (audioContext.state === 'suspended') {
-              audioContext.resume();
-          }
-          setIsSpeaking(true);
-          playAudioQueue();
-      }
-  }, [audioContext, isSpeaking, isAudioReady, playAudioQueue]);
-
-  const handleMicClick = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
-
-    if (isListening) {
-      recognition.stop();
-    } else {
-      setSearchTerm('');
-      setError(null);
-      setDefinition(null);
-      setIsInitialState(false);
-      setIsListening(true);
-      try {
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+            const transcript = event.results[0][0].transcript;
+            setSearchTerm(transcript);
+            handleSearch(transcript);
+        };
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+            setError(`Voice search error: ${event.error}`);
+        };
+        recognition.onend = () => {
+            setIsListening(false);
+        };
+        
         recognition.start();
-      } catch (e) {
-        setError("Could not start voice recognition. Please ensure microphone is connected.");
-        setIsListening(false);
-      }
-    }
-  }, [isListening]);
+        setIsListening(true);
+    };
+    
+    const handleSurpriseMe = useCallback(() => {
+        const popularTerms = ['rizz', 'delulu', 'simp', 'pog', 'based', 'yeet', 'finna', 'bet', 'no cap'];
+        const randomTerm = popularTerms[Math.floor(Math.random() * popularTerms.length)];
+        setSearchTerm(randomTerm);
+        handleSearch(randomTerm);
+    }, [handleSearch]);
 
-  const handleClearHistory = () => {
-      setSearchHistory([]);
-      try {
-          localStorage.removeItem('slangSearchHistory');
-      } catch (e) {
-          console.error("Failed to clear search history from localStorage", e);
-      }
-  }
+    const toggleFavorite = useCallback((term: string, def: SlangDefinition) => {
+        setFavorites(prev => {
+            const newFavorites = { ...prev };
+            if (newFavorites[term]) {
+                delete newFavorites[term];
+            } else {
+                newFavorites[term] = def;
+            }
+            localStorage.setItem('slangFavorites', JSON.stringify(newFavorites));
+            return newFavorites;
+        });
+    }, []);
 
-  const examplesToDisplay = showAllExamples ? shuffledExamples : shuffledExamples.slice(0, EXAMPLES_TO_SHOW);
+    return (
+        <main className="bg-gray-900 min-h-screen text-gray-100 font-sans p-4 sm:p-6 lg:p-8">
+            <div className="max-w-3xl mx-auto">
+                <header className="flex flex-col items-center text-center mb-8">
+                    <Logo />
+                    <h1 className="text-4xl sm:text-5xl font-extrabold mt-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-500">SlangSupport</h1>
+                    <p className="text-gray-400 mt-2 max-w-md">Your modern-day urban dictionary. Get the vibe on the latest slang.</p>
+                </header>
+                
+                <div className="relative mb-6">
+                    <form onSubmit={(e) => { e.preventDefault(); handleSearch(searchTerm); }}>
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Type a slang term, e.g., 'rizz'"
+                            className="w-full pl-4 pr-24 py-3 text-lg bg-gray-800 border-2 border-gray-700 rounded-full focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition"
+                            aria-label="Search for a slang term"
+                        />
+                         <div className="absolute inset-y-0 right-2 flex items-center">
+                            <button
+                                type="button"
+                                onClick={handleVoiceSearch}
+                                className={`p-2 mr-1 rounded-full transition-colors ${isListening ? 'text-cyan-400 animate-pulse' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                                aria-label="Search with voice"
+                            >
+                                <MicrophoneIcon className="w-6 h-6" />
+                            </button>
+                            <button type="submit" className="px-4 py-2 text-base font-semibold text-white bg-cyan-600 rounded-full hover:bg-cyan-700 transition-colors">Search</button>
+                        </div>
+                    </form>
+                    <button onClick={handleSurpriseMe} className="absolute -bottom-7 right-2 text-xs text-cyan-400 hover:underline">Surprise Me!</button>
+                </div>
+                
+                 <div className="flex justify-center space-x-4 mb-8 border-b border-gray-700">
+                    {['search', 'history', 'favorites'].map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab as any)}
+                            className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            {tab === 'search' ? 'Result' : tab}
+                        </button>
+                    ))}
+                </div>
 
-  return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6">
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-        @keyframes listening-pulse {
-          0% {
-            transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
-          }
-          70% {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 12px rgba(56, 189, 248, 0);
-          }
-          100% {
-            transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
-          }
-        }
-        .animate-listening {
-          animation: listening-pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
-        }
-      `}</style>
-      <header className="w-full max-w-2xl mb-8 text-center">
-        <div className="flex justify-center items-center gap-4 mb-2">
-            <Logo />
-            <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
-            SlangSupport
-            </h1>
-        </div>
-        <p className="text-lg text-gray-400">Your modern-day urban dictionary.</p>
-      </header>
-      
-      <main className="w-full flex-grow flex flex-col items-center">
-        <InputForm 
-          searchTerm={searchTerm} 
-          setSearchTerm={setSearchTerm} 
-          handleSubmit={handleSubmit} 
-          isLoading={isLoading} 
-          isListening={isListening}
-          onMicClick={handleMicClick}
-          micSupported={micSupported}
-        />
-        
-        <SearchHistory 
-            history={searchHistory}
-            onHistoryClick={handleExampleClick}
-            onClear={handleClearHistory}
-        />
-        
-        {isInitialState && (
-            <InitialStateDisplay 
-                examples={examplesToDisplay} 
-                onExampleClick={handleExampleClick} 
-                onRefresh={refreshExamples}
-                onToggleShowMore={handleToggleShowMore}
-                showAll={showAllExamples}
-            />
-        )}
-        
-        {isLoading && <LoadingSpinner />}
-        
-        {error && (
-          <div className="mt-8 p-4 w-full max-w-2xl bg-red-900/50 border border-red-700 text-red-300 rounded-xl animate-fade-in">
-            <p className="font-bold">Error:</p>
-            <p>{error}</p>
-          </div>
-        )}
-        
-        {definition && !isLoading && (
-          <ResultDisplay 
-            term={submittedTerm} 
-            definition={definition}
-            onSpeak={handleSpeak}
-            isSpeaking={isSpeaking} 
-            isAudioReady={isAudioReady}
-            onRelatedTermClick={handleExampleClick}
-          />
-        )}
-      </main>
-      
-      <footer className="w-full text-center p-4 mt-8">
-        <p className="text-gray-500 text-sm">Powered by Gemini</p>
-      </footer>
-    </div>
-  );
-}
+                <div className="min-h-[300px]">
+                    {isLoading && <div className="text-center p-8 text-gray-400">Loading...</div>}
+                    {error && <div className="text-center p-8 text-red-400 bg-red-900/20 rounded-lg">{error}</div>}
+                    
+                    {activeTab === 'search' && !isLoading && !error && (
+                         definition ? (
+                            <ResultDisplay
+                                term={searchTerm}
+                                definition={definition}
+                                onPlayAudio={handlePlayAudio}
+                                onStopAudio={handleStopAudio}
+                                isPlaying={isPlaying}
+                                onSelectRelated={(term) => { setSearchTerm(term); handleSearch(term); }}
+                                isFavorite={!!favorites[searchTerm.toLowerCase()]}
+                                onToggleFavorite={() => toggleFavorite(searchTerm.toLowerCase(), definition)}
+                            />
+                        ) : (initialLoad && <SlangOfTheDay onSearch={(term) => { setSearchTerm(term); handleSearch(term); }} />)
+                    )}
+
+                    {activeTab === 'history' && (
+                        <HistoryOrFavorites 
+                            title="Search History"
+                            items={searchHistory}
+                            onSelect={(term) => { setSearchTerm(term); handleSearch(term); }}
+                            onClear={() => { setSearchHistory([]); localStorage.removeItem('slangSearchHistory'); }}
+                        />
+                    )}
+
+                    {activeTab === 'favorites' && (
+                        <HistoryOrFavorites 
+                            title="Favorites"
+                            items={Object.keys(favorites)}
+                            onSelect={(term) => { setSearchTerm(term); handleSearch(term); }}
+                        />
+                    )}
+                </div>
+            </div>
+        </main>
+    );
+};
+
+export default App;
