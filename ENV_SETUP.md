@@ -3,11 +3,8 @@
 ## Development (.env.local)
 
 ```env
-# Backend API URL (for development)
+# Backend API URL (for development) - Optional
 VITE_API_URL=http://localhost:3001/api
-
-# Gemini API Key (for frontend Gemini integration)
-GEMINI_API_KEY=your_gemini_api_key_here
 
 # Optional: Enable debug mode
 VITE_DEBUG=true
@@ -18,33 +15,16 @@ VITE_DEBUG=true
 Set these in your Vercel dashboard under Project Settings > Environment Variables:
 
 ```env
-# Backend API URL (for production)
+# Backend API URL (for production) - Optional
 VITE_API_URL=https://your-backend-api.vercel.app/api
-
-# Gemini API Key (for frontend Gemini integration)
-GEMINI_API_KEY=your_actual_gemini_api_key_here
 
 # Optional: Enable debug mode
 VITE_DEBUG=false
 ```
 
-## Backend Environment Variables
+## No External API Keys Required!
 
-If you're also deploying the backend, you'll need:
-
-```env
-# Gemini API Key
-GEMINI_API_KEY=your_actual_gemini_api_key_here
-
-# Database URL (if using database)
-DATABASE_URL=your_database_connection_string
-
-# JWT Secret (for authentication)
-JWT_SECRET=your_jwt_secret_key
-
-# Frontend URL (for CORS)
-FRONTEND_URL=https://your-frontend.vercel.app
-```
+SlangSupport now uses built-in mock data, so you don't need to set up any external API keys like Gemini. The app works completely offline with a comprehensive database of slang terms.
 
 ## How to Set Environment Variables in Vercel
 
@@ -58,5 +38,5 @@ FRONTEND_URL=https://your-frontend.vercel.app
 
 - Never commit `.env` files to version control
 - Use strong, unique values for secrets
-- Rotate API keys regularly
+- Rotate API keys regularly (if using external APIs)
 - Use different keys for development and production
