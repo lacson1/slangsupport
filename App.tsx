@@ -20,11 +20,82 @@ interface SpeechRecognition extends EventTarget {
   removeEventListener: (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => void;
 }
 
-// Fix: Correctly define SpeechRecognition properties on the Window interface to resolve TypeScript errors.
-interface Window {
-  SpeechRecognition: { new(): SpeechRecognition };
-  webkitSpeechRecognition: { new(): SpeechRecognition };
+// Fix: Correctly define SpeechRecognition properties on the Window interface to resolve TypeScript errors by augmenting the global Window type.
+declare global {
+  interface Window {
+    SpeechRecognition: { new(): SpeechRecognition };
+    webkitSpeechRecognition: { new(): SpeechRecognition };
+  }
 }
+
+
+// --- THEME DEFINITIONS ---
+const themes = {
+  cyberpunk: {
+    '--color-bg': '#111827',
+    '--color-text-primary': '#f3f4f6',
+    '--color-text-secondary': '#9ca3af',
+    '--color-accent': '#22d3ee',
+    '--color-accent-gradient-end': '#14b8a6',
+    '--color-accent-strong': '#0891b2',
+    '--color-accent-strong-hover': '#0e7490',
+    '--color-card-bg': 'rgba(31, 41, 55, 0.5)', // gray-800 with opacity
+    '--color-input-bg': '#1f2937',
+    '--color-border': '#374151',
+    '--color-button-secondary-bg': '#374151',
+    '--color-button-secondary-hover': '#06b6d4',
+    '--color-button-opposite-hover': '#f43f5e',
+    '--color-favorite': '#facc15', // yellow-400
+  },
+  synthwave: {
+    '--color-bg': '#1a103c',
+    '--color-text-primary': '#f4bdf1',
+    '--color-text-secondary': '#a78bfa',
+    '--color-accent': '#ff79c6',
+    '--color-accent-gradient-end': '#f1fa8c',
+    '--color-accent-strong': '#bd93f9',
+    '--color-accent-strong-hover': '#9a6dd1',
+    '--color-card-bg': 'rgba(40, 25, 80, 0.6)',
+    '--color-input-bg': '#281950',
+    '--color-border': '#44318d',
+    '--color-button-secondary-bg': '#44318d',
+    '--color-button-secondary-hover': '#ff79c6',
+    '--color-button-opposite-hover': '#ff5555',
+    '--color-favorite': '#f1fa8c',
+  },
+  forest: {
+    '--color-bg': '#283618',
+    '--color-text-primary': '#fefae0',
+    '--color-text-secondary': '#dda15e',
+    '--color-accent': '#606c38',
+    '--color-accent-gradient-end': '#bc6c25',
+    '--color-accent-strong': '#bc6c25',
+    '--color-accent-strong-hover': '#a05d21',
+    '--color-card-bg': 'rgba(40, 54, 24, 0.7)',
+    '--color-input-bg': '#3a4a22',
+    '--color-border': '#606c38',
+    '--color-button-secondary-bg': '#606c38',
+    '--color-button-secondary-hover': '#dda15e',
+    '--color-button-opposite-hover': '#c1121f',
+    '--color-favorite': '#dda15e',
+  },
+  monochrome: {
+    '--color-bg': '#121212',
+    '--color-text-primary': '#ffffff',
+    '--color-text-secondary': '#a0a0a0',
+    '--color-accent': '#888888',
+    '--color-accent-gradient-end': '#ffffff',
+    '--color-accent-strong': '#444444',
+    '--color-accent-strong-hover': '#666666',
+    '--color-card-bg': 'rgba(40, 40, 40, 0.5)',
+    '--color-input-bg': '#222222',
+    '--color-border': '#444444',
+    '--color-button-secondary-bg': '#444444',
+    '--color-button-secondary-hover': '#ffffff',
+    '--color-button-opposite-hover': '#ffffff',
+    '--color-favorite': '#ffffff',
+  },
+};
 
 
 // --- AUDIO UTILITY FUNCTIONS ---
@@ -61,7 +132,7 @@ async function decodeAudioData(
 // --- SVG ICONS ---
 
 const Logo: React.FC = () => (
-  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-cyan-400">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[var(--color-accent)]">
     <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M11 8C10.6163 8.63666 9.93264 9.4792 9 10C9.09915 10.5186 9.41689 11.2334 10 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -99,6 +170,25 @@ const FilledStarIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 // --- UI COMPONENTS ---
 
+const ThemeSelector: React.FC<{ currentTheme: string; onChangeTheme: (theme: string) => void; }> = ({ currentTheme, onChangeTheme }) => (
+    <div className="absolute top-4 right-4 z-10">
+        <label htmlFor="theme-selector" className="sr-only">Choose a theme</label>
+        <select
+            id="theme-selector"
+            value={currentTheme}
+            onChange={(e) => onChangeTheme(e.target.value)}
+            className="bg-[var(--color-input-bg)] border border-[var(--color-border)] text-[var(--color-text-secondary)] rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:outline-none capitalize"
+        >
+            {Object.keys(themes).map(themeName => (
+                <option key={themeName} value={themeName}>
+                    {themeName}
+                </option>
+            ))}
+        </select>
+    </div>
+);
+
+
 const PopularityMeter: React.FC<{ popularity: SlangDefinition['popularity'] }> = ({ popularity }) => {
     const popularityStyles = {
         'Trending Up': { width: '100%', color: 'bg-emerald-500', label: 'Trending Up' },
@@ -110,8 +200,8 @@ const PopularityMeter: React.FC<{ popularity: SlangDefinition['popularity'] }> =
 
     return (
         <div>
-            <span className="text-sm font-medium text-gray-400">{style.label}</span>
-            <div className="w-full bg-gray-700 rounded-full h-2.5 mt-1">
+            <span className="text-sm font-medium text-[var(--color-text-secondary)]">{style.label}</span>
+            <div className="w-full bg-black/20 rounded-full h-2.5 mt-1">
                 <div className={`${style.color} h-2.5 rounded-full transition-all duration-500`} style={{ width: style.width }}></div>
             </div>
         </div>
@@ -129,10 +219,10 @@ const ResultDisplay: React.FC<{
     onToggleFavorite: () => void;
 }> = ({ term, definition, onPlayAudio, onStopAudio, isPlaying, onSelectRelated, isFavorite, onToggleFavorite }) => {
     const fullTextForSpeech = `${term}. Meaning: ${definition.meaning}. For example: ${definition.example}`;
-    const vibeColor = 'bg-cyan-900/50 text-cyan-300';
+    const vibeColor = 'bg-[var(--color-accent)]/20 text-[var(--color-accent)]';
 
     return (
-        <div className="bg-gray-800/50 rounded-xl shadow-lg backdrop-blur-sm p-6 animate-fade-in">
+        <div className="bg-[var(--color-card-bg)] rounded-xl shadow-lg backdrop-blur-sm p-6 animate-fade-in">
             <div className="flex justify-between items-start">
                 <div>
                     <h2 className="text-3xl font-bold text-white capitalize">{term}</h2>
@@ -143,50 +233,50 @@ const ResultDisplay: React.FC<{
                 <div className="flex items-center space-x-2">
                     <button
                         onClick={() => isPlaying ? onStopAudio() : onPlayAudio(fullTextForSpeech)}
-                        className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+                        className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors rounded-full hover:bg-[var(--color-button-secondary-bg)]"
                         aria-label={isPlaying ? 'Stop audio' : 'Play audio'}
                     >
-                        {isPlaying ? <StopIcon className="w-6 h-6 text-cyan-400" /> : <SpeakerIcon className="w-6 h-6" />}
+                        {isPlaying ? <StopIcon className="w-6 h-6 text-[var(--color-accent)]" /> : <SpeakerIcon className="w-6 h-6" />}
                     </button>
                     <button
                         onClick={onToggleFavorite}
-                        className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700"
+                        className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-favorite)] transition-colors rounded-full hover:bg-[var(--color-button-secondary-bg)]"
                         aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                        {isFavorite ? <FilledStarIcon className="w-6 h-6 text-yellow-400" /> : <StarIcon className="w-6 h-6" />}
+                        {isFavorite ? <FilledStarIcon className="w-6 h-6 text-[var(--color-favorite)]" /> : <StarIcon className="w-6 h-6" />}
                     </button>
                 </div>
             </div>
 
             <div className="mt-4 space-y-6">
                 <div>
-                    <h3 className="text-lg font-semibold text-cyan-400">Meaning</h3>
-                    <p className="text-gray-300 mt-1">{definition.meaning}</p>
+                    <h3 className="text-lg font-semibold text-[var(--color-accent)]">Meaning</h3>
+                    <p className="text-[var(--color-text-primary)] mt-1">{definition.meaning}</p>
                 </div>
                 <div>
-                    <h3 className="text-lg font-semibold text-cyan-400">Example</h3>
-                    <p className="text-gray-300 mt-1 italic">"{definition.example}"</p>
+                    <h3 className="text-lg font-semibold text-[var(--color-accent)]">Example</h3>
+                    <p className="text-[var(--color-text-primary)] mt-1 italic">"{definition.example}"</p>
                 </div>
                  <div>
-                    <h3 className="text-lg font-semibold text-cyan-400">Vibe Check</h3>
-                    <p className="text-gray-300 mt-1">{definition.vibe.description}</p>
+                    <h3 className="text-lg font-semibold text-[var(--color-accent)]">Vibe Check</h3>
+                    <p className="text-[var(--color-text-primary)] mt-1">{definition.vibe.description}</p>
                 </div>
                  <div>
-                    <h3 className="text-lg font-semibold text-cyan-400">Origin</h3>
-                    <p className="text-gray-300 mt-1">{definition.origin}</p>
+                    <h3 className="text-lg font-semibold text-[var(--color-accent)]">Origin</h3>
+                    <p className="text-[var(--color-text-primary)] mt-1">{definition.origin}</p>
                 </div>
                 <div>
-                    <h3 className="text-lg font-semibold text-cyan-400">Popularity</h3>
+                    <h3 className="text-lg font-semibold text-[var(--color-accent)]">Popularity</h3>
                     <PopularityMeter popularity={definition.popularity} />
                 </div>
                 <div>
-                    <h3 className="text-lg font-semibold text-cyan-400">Related Terms</h3>
+                    <h3 className="text-lg font-semibold text-[var(--color-accent)]">Related Terms</h3>
                     <div className="flex flex-wrap gap-2 mt-2">
                         {definition.relatedTerms.map(relatedTerm => (
                             <button
                                 key={relatedTerm}
                                 onClick={() => onSelectRelated(relatedTerm)}
-                                className="px-3 py-1 bg-gray-700 hover:bg-cyan-500 text-gray-300 hover:text-white rounded-full text-sm transition-colors"
+                                className="px-3 py-1 bg-[var(--color-button-secondary-bg)] hover:bg-[var(--color-button-secondary-hover)] text-[var(--color-text-secondary)] hover:text-white rounded-full text-sm transition-colors"
                             >
                                 {relatedTerm}
                             </button>
@@ -195,13 +285,13 @@ const ResultDisplay: React.FC<{
                 </div>
                 {definition.oppositeTerms && definition.oppositeTerms.length > 0 && (
                   <div>
-                      <h3 className="text-lg font-semibold text-cyan-400">Opposite in Meaning</h3>
+                      <h3 className="text-lg font-semibold text-[var(--color-accent)]">Opposite in Meaning</h3>
                       <div className="flex flex-wrap gap-2 mt-2">
                           {definition.oppositeTerms.map(oppositeTerm => (
                               <button
                                   key={oppositeTerm}
                                   onClick={() => onSelectRelated(oppositeTerm)}
-                                  className="px-3 py-1 bg-gray-700 hover:bg-rose-500 text-gray-300 hover:text-white rounded-full text-sm transition-colors"
+                                  className="px-3 py-1 bg-[var(--color-button-secondary-bg)] hover:bg-[var(--color-button-opposite-hover)] text-[var(--color-text-secondary)] hover:text-white rounded-full text-sm transition-colors"
                               >
                                   {oppositeTerm}
                               </button>
@@ -220,25 +310,25 @@ const HistoryOrFavorites: React.FC<{
     onSelect: (item: string) => void;
     onClear?: () => void;
 }> = ({ items, title, onSelect, onClear }) => (
-    <div className="bg-gray-800/50 rounded-xl shadow-lg p-6 animate-fade-in">
+    <div className="bg-[var(--color-card-bg)] rounded-xl shadow-lg p-6 animate-fade-in">
         <div className="flex justify-between items-center">
             <h3 className="text-xl font-bold text-white">{title}</h3>
             {onClear && items.length > 0 && (
-                <button onClick={onClear} className="text-sm text-cyan-400 hover:underline">Clear All</button>
+                <button onClick={onClear} className="text-sm text-[var(--color-accent)] hover:underline">Clear All</button>
             )}
         </div>
         {items.length > 0 ? (
             <ul className="mt-4 space-y-2">
                 {items.map(item => (
                     <li key={item}>
-                        <button onClick={() => onSelect(item)} className="w-full text-left p-2 rounded-md text-gray-300 hover:bg-gray-700 transition-colors">
+                        <button onClick={() => onSelect(item)} className="w-full text-left p-2 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-button-secondary-bg)] transition-colors">
                             {item}
                         </button>
                     </li>
                 ))}
             </ul>
         ) : (
-            <p className="text-gray-500 mt-4">No {title.toLowerCase()} yet.</p>
+            <p className="text-[var(--color-text-secondary)]/70 mt-4">No {title.toLowerCase()} yet.</p>
         )}
     </div>
 );
@@ -262,9 +352,9 @@ const SlangOfTheDay: React.FC<{ onSearch: (term: string) => void }> = ({ onSearc
     }, [onSearch]);
 
     return (
-        <div className="text-center p-6 bg-gray-800/50 rounded-xl">
-             <h2 className="text-xl font-bold text-cyan-400">Slang of the Day</h2>
-             <p className="text-gray-400 mt-2">Loading today's term...</p>
+        <div className="text-center p-6 bg-[var(--color-card-bg)] rounded-xl">
+             <h2 className="text-xl font-bold text-[var(--color-accent)]">Slang of the Day</h2>
+             <p className="text-[var(--color-text-secondary)] mt-2">Loading today's term...</p>
         </div>
     );
 };
@@ -289,9 +379,12 @@ const App: React.FC = () => {
     const [favorites, setFavorites] = useState<Record<string, SlangDefinition>>({});
     const [activeTab, setActiveTab] = useState<'search' | 'history' | 'favorites'>('search');
     const [initialLoad, setInitialLoad] = useState<boolean>(true);
-
+    
+    const [theme, setTheme] = useState<string>('cyberpunk');
 
     useEffect(() => {
+        const savedTheme = localStorage.getItem('slang-theme') || 'cyberpunk';
+        setTheme(savedTheme);
         try {
             const storedHistory = localStorage.getItem('slangSearchHistory');
             if (storedHistory) setSearchHistory(JSON.parse(storedHistory));
@@ -301,6 +394,17 @@ const App: React.FC = () => {
             console.error("Failed to load data from localStorage", e);
         }
     }, []);
+    
+    useEffect(() => {
+        const themeColors = themes[theme as keyof typeof themes];
+        if (themeColors) {
+            for (const [key, value] of Object.entries(themeColors)) {
+                document.documentElement.style.setProperty(key, value);
+            }
+            localStorage.setItem('slang-theme', theme);
+        }
+    }, [theme]);
+
 
     const handleSearch = useCallback(async (termToSearch: string) => {
         if (!termToSearch.trim()) return;
@@ -414,12 +518,14 @@ const App: React.FC = () => {
     }, []);
 
     return (
-        <main className="bg-gray-900 min-h-screen text-gray-100 font-sans p-4 sm:p-6 lg:p-8">
-            <div className="max-w-3xl mx-auto">
+        <main className="bg-[var(--color-bg)] min-h-screen text-[var(--color-text-primary)] font-sans p-4 sm:p-6 lg:p-8 transition-colors duration-300">
+            <div className="max-w-3xl mx-auto relative">
+                <ThemeSelector currentTheme={theme} onChangeTheme={setTheme} />
+
                 <header className="flex flex-col items-center text-center mb-8">
                     <Logo />
-                    <h1 className="text-4xl sm:text-5xl font-extrabold mt-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-500">SlangSupport</h1>
-                    <p className="text-gray-400 mt-2 max-w-md">Your modern-day urban dictionary. Get the vibe on the latest slang.</p>
+                    <h1 className="text-4xl sm:text-5xl font-extrabold mt-2 text-transparent bg-clip-text bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-accent-gradient-end)]">SlangSupport</h1>
+                    <p className="text-[var(--color-text-secondary)] mt-2 max-w-md">Your modern-day urban dictionary. Get the vibe on the latest slang.</p>
                 </header>
                 
                 <div className="relative mb-6">
@@ -429,30 +535,30 @@ const App: React.FC = () => {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Type a slang term, e.g., 'rizz'"
-                            className="w-full pl-4 pr-24 py-3 text-lg bg-gray-800 border-2 border-gray-700 rounded-full focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition"
+                            className="w-full pl-4 pr-24 py-3 text-lg bg-[var(--color-input-bg)] border-2 border-[var(--color-border)] rounded-full focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] focus:outline-none transition"
                             aria-label="Search for a slang term"
                         />
                          <div className="absolute inset-y-0 right-2 flex items-center">
                             <button
                                 type="button"
                                 onClick={handleVoiceSearch}
-                                className={`p-2 mr-1 rounded-full transition-colors ${isListening ? 'text-cyan-400 animate-pulse' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                                className={`p-2 mr-1 rounded-full transition-colors ${isListening ? 'text-[var(--color-accent)] animate-pulse' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-button-secondary-bg)]'}`}
                                 aria-label="Search with voice"
                             >
                                 <MicrophoneIcon className="w-6 h-6" />
                             </button>
-                            <button type="submit" className="px-4 py-2 text-base font-semibold text-white bg-cyan-600 rounded-full hover:bg-cyan-700 transition-colors">Search</button>
+                            <button type="submit" className="px-4 py-2 text-base font-semibold text-white bg-[var(--color-accent-strong)] rounded-full hover:bg-[var(--color-accent-strong-hover)] transition-colors">Search</button>
                         </div>
                     </form>
-                    <button onClick={handleSurpriseMe} className="absolute -bottom-7 right-2 text-xs text-cyan-400 hover:underline">Surprise Me!</button>
+                    <button onClick={handleSurpriseMe} className="absolute -bottom-7 right-2 text-xs text-[var(--color-accent)] hover:underline">Surprise Me!</button>
                 </div>
                 
-                 <div className="flex justify-center space-x-4 mb-8 border-b border-gray-700">
+                 <div className="flex justify-center space-x-4 mb-8 border-b border-[var(--color-border)]">
                     {['search', 'history', 'favorites'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
-                            className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-gray-400 hover:text-white'}`}
+                            className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'text-[var(--color-accent)] border-b-2 border-[var(--color-accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
                         >
                             {tab === 'search' ? 'Result' : tab}
                         </button>
@@ -460,7 +566,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="min-h-[300px]">
-                    {isLoading && <div className="text-center p-8 text-gray-400">Loading...</div>}
+                    {isLoading && <div className="text-center p-8 text-[var(--color-text-secondary)]">Loading...</div>}
                     {error && <div className="text-center p-8 text-red-400 bg-red-900/20 rounded-lg">{error}</div>}
                     
                     {activeTab === 'search' && !isLoading && !error && (
