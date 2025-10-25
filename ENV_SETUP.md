@@ -6,6 +6,9 @@
 # Backend API URL (for development)
 VITE_API_URL=http://localhost:3001/api
 
+# Gemini API Key (for frontend Gemini integration)
+GEMINI_API_KEY=your_gemini_api_key_here
+
 # Optional: Enable debug mode
 VITE_DEBUG=true
 ```
@@ -17,6 +20,9 @@ Set these in your Vercel dashboard under Project Settings > Environment Variable
 ```env
 # Backend API URL (for production)
 VITE_API_URL=https://your-backend-api.vercel.app/api
+
+# Gemini API Key (for frontend Gemini integration)
+GEMINI_API_KEY=your_actual_gemini_api_key_here
 
 # Optional: Enable debug mode
 VITE_DEBUG=false
