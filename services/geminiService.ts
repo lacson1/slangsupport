@@ -1,11 +1,15 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { SlangDefinition, Category, RelatedTerm } from '../types';
 
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY environment variable not set");
+// Check for API key with fallback
+const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
+
+if (!apiKey) {
+  console.warn("GEMINI_API_KEY environment variable not set. Gemini features will be disabled.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Only initialize AI if API key is available
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 const definitionSchema = {
   type: Type.OBJECT,
@@ -46,6 +50,20 @@ const definitionSchema = {
 
 export const getSlangDefinition = async (term: string): Promise<SlangDefinition> => {
   try {
+    // If no API key, return a fallback response
+    if (!ai) {
+      return {
+        meaning: `"${term}" is a slang term. To get a detailed definition, please set up your Gemini API key in the environment variables.`,
+        example: `Here's how "${term}" might be used: "That was so ${term}!"`,
+        category: 'General',
+        relatedTerms: [
+          { term: 'slang', reason: 'General category' },
+          { term: 'trending', reason: 'Likely popular term' },
+          { term: 'casual', reason: 'Informal usage' }
+        ]
+      };
+    }
+
     const prompt = `Define the slang term or abbreviation: "${term}". Explain its meaning and provide an example of its use in a sentence. Also categorize it and provide 3-5 related terms with brief explanations. If the term is nonsensical or not a real slang/abbreviation, state that you couldn't find a definition.`;
 
     const response = await ai.models.generateContent({
@@ -73,6 +91,11 @@ export const getSlangDefinition = async (term: string): Promise<SlangDefinition>
 
 export const getSpeech = async (text: string): Promise<string> => {
   try {
+    // If no API key, return mock audio
+    if (!ai) {
+      return 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT';
+    }
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text }] }],
