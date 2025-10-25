@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPreferences } from '../types';
 
 interface SettingsProps {
@@ -35,6 +35,23 @@ export const Settings: React.FC<SettingsProps> = ({
         onToggle();
     };
 
+    // Handle escape key to close settings
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isOpen) {
+                onToggle();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleEscape);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isOpen, onToggle]);
+
     return (
         <>
             {/* Toggle Button */}
@@ -60,8 +77,11 @@ export const Settings: React.FC<SettingsProps> = ({
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-bold text-white">Settings</h2>
                         <button
-                            onClick={onToggle}
-                            className="text-gray-400 hover:text-white transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggle();
+                            }}
+                            className="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-gray-700"
                             aria-label="Close settings"
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,7 +244,10 @@ export const Settings: React.FC<SettingsProps> = ({
             {isOpen && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-50 z-40"
-                    onClick={onToggle}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggle();
+                    }}
                 />
             )}
         </>
