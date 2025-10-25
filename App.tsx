@@ -12,7 +12,18 @@ import { RelatedTerms } from './components/RelatedTerms';
 import { CategoryBadge, CategoryFilter } from './components/CategoryBadge';
 import { Quiz } from './components/Quiz';
 import { Settings } from './components/Settings';
+import { 
+  MaterialAppBar, 
+  MaterialContainer, 
+  MaterialCard, 
+  MaterialTextField, 
+  MaterialButton, 
+  MaterialChip,
+  MaterialTypography,
+  MaterialGrid
+} from './components/MaterialComponents';
 import './styles/themes.css';
+import './styles/material-design.css';
 
 // FIX: Update type definitions for the Web Speech API to use addEventListener
 interface SpeechRecognitionEvent extends Event {
@@ -355,86 +366,72 @@ const AppContent: React.FC = () => {
     : ALL_EXAMPLES;
 
   return (
-    <div 
-      className="min-h-screen transition-colors duration-300 theme-bg theme-text"
-      style={{
-        backgroundColor: currentTheme.colors.background,
-        color: currentTheme.colors.text
-      }}
-    >
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header 
-        className="p-6 shadow-lg theme-surface"
-        style={{
-          background: `linear-gradient(135deg, ${currentTheme.colors.primary}, ${currentTheme.colors.secondary})`,
-          color: currentTheme.colors.text
-        }}
+      <MaterialAppBar 
+        title="SlangSupport" 
+        subtitle="AI-powered slang dictionary with voice search"
       >
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">SlangSupport</h1>
-            <p className="opacity-90">AI-powered slang dictionary with voice search</p>
-          </div>
-          <ThemeSwitcher />
-        </div>
-      </header>
+        <ThemeSwitcher />
+      </MaterialAppBar>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto p-6 space-y-6">
+      <MaterialContainer className="py-6">
         {/* Search Section */}
-        <div 
-          className="rounded-xl shadow-lg p-6 theme-surface theme-border"
-          style={{
-            backgroundColor: currentTheme.colors.surface,
-            borderColor: currentTheme.colors.border,
-            borderWidth: '1px'
-          }}
-        >
-          <div className="flex gap-4 mb-4">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search for slang terms..."
-              className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent theme-surface theme-text theme-border"
-              style={{
-                backgroundColor: currentTheme.colors.surface,
-                color: currentTheme.colors.text,
-                borderColor: currentTheme.colors.border,
-                '--tw-ring-color': currentTheme.colors.primary
-              } as React.CSSProperties}
-              disabled={isLoading}
-            />
-            <button
-              onClick={() => handleSearch()}
-              disabled={isLoading || !searchTerm.trim()}
-              className="px-6 py-3 text-white rounded-lg font-medium transition-colors duration-200 theme-primary-bg hover:opacity-90 disabled:opacity-50"
-              style={{
-                backgroundColor: currentTheme.colors.primary
-              }}
-            >
-              {isLoading ? 'Searching...' : 'Search'}
-            </button>
-            <button
-              onClick={isListening ? stopListening : startListening}
-              className={`px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${isListening
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-gray-600 hover:bg-gray-700 text-white'
-                }`}
-              disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
-            >
-              {isListening ? '🎤 Stop' : '🎤 Voice'}
-            </button>
+        <MaterialCard elevation={2} className="mb-6">
+          <div className="md-flex md-gap-md md-mb-md">
+            <div className="flex-1">
+              <MaterialTextField
+                label="Search for slang terms"
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Type a slang term..."
+                type="search"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="md-flex md-gap-sm">
+              <MaterialButton
+                variant="primary"
+                onClick={() => handleSearch()}
+                disabled={isLoading || !searchTerm.trim()}
+                size="large"
+              >
+                {isLoading ? 'Searching...' : 'Search'}
+              </MaterialButton>
+              <MaterialButton
+                variant={isListening ? 'primary' : 'secondary'}
+                onClick={isListening ? stopListening : startListening}
+                disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
+                size="large"
+              >
+                {isListening ? '🎤 Stop' : '🎤 Voice'}
+              </MaterialButton>
+            </div>
           </div>
 
           {/* Category Filter */}
-          <CategoryFilter
-            selectedCategory={selectedCategory}
-            onCategorySelect={setSelectedCategory}
-            availableCategories={availableCategories}
-          />
-        </div>
+          <div className="md-mt-md">
+            <MaterialTypography variant="body2" color="secondary" className="md-mb-sm">
+              Filter by category:
+            </MaterialTypography>
+            <div className="md-flex md-gap-sm flex-wrap">
+              <MaterialChip
+                label="All"
+                selected={!selectedCategory}
+                onClick={() => setSelectedCategory(null)}
+              />
+              {availableCategories.map((category) => (
+                <MaterialChip
+                  key={category}
+                  label={category}
+                  selected={selectedCategory === category}
+                  onClick={() => setSelectedCategory(category)}
+                />
+              ))}
+            </div>
+          </div>
+        </MaterialCard>
 
         {/* Definition Display */}
         {definition && (
