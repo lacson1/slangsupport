@@ -51,7 +51,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
       {/* Settings Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-96 bg-gray-900 border-l border-gray-700 transform transition-transform duration-300 ease-in-out z-50 ${isOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed top-0 right-0 h-full w-full max-w-md bg-gray-900 border-l border-gray-700 transform transition-transform duration-300 ease-in-out z-50 ${isOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
       >
         <div className="p-6 border-b border-gray-700">

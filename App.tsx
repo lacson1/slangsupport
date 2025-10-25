@@ -454,7 +454,7 @@ const AppContent: React.FC = () => {
   ).length;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6 relative">
       <style>{`
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(20px); }
@@ -477,13 +477,13 @@ const AppContent: React.FC = () => {
           <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-2">
             SlangSupport
           </h1>
-          <p className="text-gray-400 text-lg">Your AI-powered slang dictionary</p>
+          <p className="text-gray-400 text-lg mb-4">Your AI-powered slang dictionary</p>
 
           {/* Quick Stats */}
-          <div className="flex justify-center gap-6 mt-4 text-sm text-gray-500">
-            <span>{searchCount} searches today</span>
-            <span>{favorites.length} favorites</span>
-            <span>{preferences.quizHighScore} quiz high score</span>
+          <div className="flex justify-center gap-4 sm:gap-6 mt-4 text-sm text-gray-500 flex-wrap">
+            <span className="bg-gray-800 px-3 py-1 rounded-full">{searchCount} searches today</span>
+            <span className="bg-gray-800 px-3 py-1 rounded-full">{favorites.length} favorites</span>
+            <span className="bg-gray-800 px-3 py-1 rounded-full">{preferences.quizHighScore} quiz high score</span>
           </div>
         </div>
       </header>
@@ -545,19 +545,19 @@ const AppContent: React.FC = () => {
         ) : (
           <div className="animate-fade-in">
             {/* Definition Display */}
-            <div className="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h2 className="text-3xl font-bold text-white mb-2">{searchTerm}</h2>
+            <div className="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700 shadow-lg">
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex-1 pr-4">
+                  <h2 className="text-3xl font-bold text-white mb-3">{searchTerm}</h2>
                   {definition.category && (
                     <CategoryBadge category={definition.category} size="md" />
                   )}
                 </div>
                 <button
                   onClick={handleFavoriteToggle}
-                  className={`p-2 rounded-lg transition-colors ${isFavorite(searchTerm)
-                    ? 'text-pink-400 hover:text-pink-300'
-                    : 'text-gray-400 hover:text-pink-400'
+                  className={`p-3 rounded-lg transition-all duration-200 ${isFavorite(searchTerm)
+                    ? 'text-pink-400 hover:text-pink-300 bg-pink-400/10'
+                    : 'text-gray-400 hover:text-pink-400 hover:bg-pink-400/10'
                     }`}
                   aria-label={isFavorite(searchTerm) ? 'Remove from favorites' : 'Add to favorites'}
                 >
@@ -591,21 +591,21 @@ const AppContent: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
               <button
                 onClick={() => {
                   setDefinition(null);
                   setSearchTerm('');
                   setError(null);
                 }}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors duration-200"
+                className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white px-8 py-3 rounded-lg transition-all duration-200 font-medium shadow-lg"
               >
                 Search Another Term
               </button>
 
               <button
                 onClick={startQuiz}
-                className="bg-yellow-600 hover:bg-yellow-500 text-white px-6 py-3 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-500 text-white px-8 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-lg"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -618,13 +618,13 @@ const AppContent: React.FC = () => {
 
         {/* Search Form */}
         <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto mt-8">
-          <div className="relative">
+          <div className="relative mb-4">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={isListening ? "🎤 Listening... Speak now" : "e.g., 'rizz', 'iykyk', 'based'"}
-              className="w-full px-4 py-3 sm:px-5 text-base sm:text-lg text-white bg-gray-800 border-2 border-gray-700 rounded-full focus:ring-4 focus:ring-cyan-500/50 focus:border-cyan-500 focus:outline-none transition-all duration-300 placeholder-gray-500 pr-12 sm:pr-14"
+              className="w-full px-6 py-4 text-lg text-white bg-gray-800 border-2 border-gray-700 rounded-xl focus:ring-4 focus:ring-cyan-500/50 focus:border-cyan-500 focus:outline-none transition-all duration-300 placeholder-gray-500 pr-16 shadow-lg"
               disabled={isLoading || isListening}
             />
 
@@ -634,7 +634,7 @@ const AppContent: React.FC = () => {
                 type="button"
                 onClick={startListening}
                 disabled={isListening || isLoading}
-                className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-2 rounded-full transition-all duration-200 ${isListening
+                className={`absolute right-4 top-1/2 transform -translate-y-1/2 p-3 rounded-lg transition-all duration-200 ${isListening
                   ? 'bg-red-500 text-white animate-pulse'
                   : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'
                   }`}
@@ -650,11 +650,11 @@ const AppContent: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading || !searchTerm.trim()}
-            className="w-full mt-4 px-6 sm:px-8 py-3 text-base sm:text-lg font-bold text-white bg-cyan-600 rounded-full hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+            className="w-full px-8 py-4 text-lg font-bold text-white bg-cyan-600 rounded-xl hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-3 shadow-lg shadow-cyan-500/20"
           >
             {isLoading ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                 Searching...
               </>
             ) : 'Define'}
