@@ -1,11 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { getSlangDefinition, getSpeech } from './services/geminiService';
 import { SlangDefinition, SearchHistoryItem, FavoriteItem, UserPreferences, QuizQuestion, Category } from './types';
-import {
-  getSearchHistory, addToSearchHistory, clearSearchHistory, removeFromSearchHistory,
-  getFavorites, addToFavorites, removeFromFavorites, isFavorite, clearFavorites,
-  getUserPreferences, updateUserPreferences, getQuizScores, addQuizScore
-} from './utils/storage';
+import { searchAPI, favoritesAPI, historyAPI, preferencesAPI, wordOfDayAPI, authAPI, isAuthenticated } from './services/apiService';
 import { getTodayString, getDaysSinceEpoch } from './utils/dateUtils';
 import { ToastProvider, useToast } from './components/Toast';
 import { SearchHistory } from './components/SearchHistory';
@@ -51,685 +46,529 @@ const ALL_EXAMPLES = [
   { term: 'stan', category: Category.MUSIC },
   { term: 'mid', category: Category.GEN_Z },
   { term: 'yeet', category: Category.GENERAL },
-  { term: 'iykyk', category: Category.ABBREVIATIONS },
-  { term: 'fr', category: Category.ABBREVIATIONS },
-  { term: 'periodt', category: Category.AAVE },
-  { term: 'main character', category: Category.GEN_Z },
-  { term: 'vibe check', category: Category.GEN_Z },
 ];
 
-const EXAMPLES_TO_SHOW = 6;
-
-// Utility function to shuffle array
-const shuffleArray = <T,>(array: T[]): T[] => {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-};
-
-const AppContent: React.FC = () => {
-  const { showToast } = useToast();
-
-  // Core state
+const App: React.FC = () => {
+  // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [definition, setDefinition] = useState<SlangDefinition | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Speech recognition state
   const [isListening, setIsListening] = useState(false);
-  const [micSupported, setMicSupported] = useState(true);
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-
-  // UI state
-  const [showAllExamples, setShowAllExamples] = useState(false);
-  const [shuffledExamples, setShuffledExamples] = useState(shuffleArray(ALL_EXAMPLES));
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-
-  // Sidebar states
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [preferences, setPreferences] = useState<UserPreferences>({
+    autoSpeak: true,
+    speechRate: 1.0,
+    speechVoice: 'default',
+    theme: 'dark',
+    showHistory: true,
+    showFavorites: true,
+    lastWordOfDay: '',
+    lastWordOfDayDate: '',
+    searchCount: 0,
+    favoriteCount: 0,
+    quizHighScore: 0,
+    totalQuizAttempts: 0,
+  });
+  const [wordOfTheDay, setWordOfTheDay] = useState<SlangDefinition | null>(null);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isFavoritesOpen, setIsFavoritesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Data state
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const [preferences, setPreferences] = useState<UserPreferences>(getUserPreferences());
+  // Refs
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Word of the Day state
-  const [wordOfTheDay, setWordOfTheDay] = useState<{ word: string; definition: SlangDefinition | null }>({
-    word: '',
-    definition: null
-  });
+  // Toast hook
+  const { showToast } = useToast();
 
-  // Quiz state
-  const [isQuizOpen, setIsQuizOpen] = useState(false);
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
-
-  // Load data on mount
+  // Initialize authentication status
   useEffect(() => {
-    setSearchHistory(getSearchHistory());
-    setFavorites(getFavorites());
-    refreshExamples();
-    loadWordOfTheDay();
+    setIsAuthenticated(isAuthenticated());
   }, []);
 
-  const refreshExamples = useCallback(() => {
-    setShuffledExamples(shuffleArray([...ALL_EXAMPLES]));
-  }, []);
+  // Load user data on authentication
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadUserData();
+    }
+  }, [isAuthenticated]);
 
-  const handleToggleShowMore = () => {
-    setShowAllExamples(prev => !prev);
+  // Load user data from backend
+  const loadUserData = async () => {
+    try {
+      const [historyData, favoritesData, preferencesData] = await Promise.all([
+        historyAPI.getHistory(),
+        favoritesAPI.getFavorites(),
+        preferencesAPI.getPreferences(),
+      ]);
+
+      setSearchHistory(historyData.history || []);
+      setFavorites(favoritesData || []);
+      setPreferences(preferencesData || preferences);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      showToast('Failed to load user data', 'error');
+    }
   };
 
+  // Load word of the day
   const loadWordOfTheDay = useCallback(async () => {
-    const today = getTodayString();
-    const lastWordOfDayDate = preferences.lastWordOfDayDate;
-
-    if (lastWordOfDayDate === today && preferences.lastWordOfDay) {
-      // Use cached word of the day - just set the word, don't fetch definition yet
-      setWordOfTheDay({
-        word: preferences.lastWordOfDay,
-        definition: null
-      });
-    } else {
-      // Generate new word of the day
-      const wordsOfTheDay = ['rizz', 'based', 'slay', 'no cap', 'bet', 'drip', 'finna', 'stan', 'mid', 'yeet'];
-      const dayIndex = getDaysSinceEpoch() % wordsOfTheDay.length;
-      const selectedWord = wordsOfTheDay[dayIndex];
-
-      setWordOfTheDay({
-        word: selectedWord,
-        definition: null
-      });
-
-      // Update preferences
-      const updatedPreferences = {
-        ...preferences,
-        lastWordOfDay: selectedWord,
-        lastWordOfDayDate: today
-      };
-      updateUserPreferences(updatedPreferences);
-      setPreferences(updatedPreferences);
+    try {
+      const response = await wordOfDayAPI.getWordOfTheDay();
+      setWordOfTheDay(response.definition);
+    } catch (error) {
+      console.error('Error loading word of the day:', error);
     }
   }, []);
 
+  // Load word of the day on mount
   useEffect(() => {
-    const context = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    setAudioContext(context);
-    return () => {
-      context.close();
-    };
-  }, []);
+    loadWordOfTheDay();
+  }, [loadWordOfTheDay]);
 
+  // Update available categories
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setMicSupported(false);
-      return;
+    const categories = Array.from(new Set([
+      ...searchHistory.map(item => item.definition.category),
+      ...favorites.map(item => item.definition.category),
+      ...ALL_EXAMPLES.map(example => example.category),
+    ]));
+    setAvailableCategories(categories as Category[]);
+  }, [searchHistory, favorites]);
+
+  // Speech recognition setup
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.addEventListener('result', (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0][0].transcript;
+        setSearchTerm(transcript);
+        handleSearch(transcript);
+      });
+
+      recognitionRef.current.addEventListener('end', () => {
+        setIsListening(false);
+      });
+
+      recognitionRef.current.addEventListener('error', () => {
+        setIsListening(false);
+        showToast('Speech recognition error', 'error');
+      });
     }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.addEventListener('result', (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setSearchTerm(transcript);
-      setIsListening(false);
-    });
-
-    recognition.addEventListener('end', () => {
-      setIsListening(false);
-    });
-
-    recognition.addEventListener('error', () => {
-      setIsListening(false);
-      showToast('Speech recognition failed. Please try again.', 'error');
-    });
-
-    recognitionRef.current = recognition;
   }, [showToast]);
 
-  const startListening = () => {
-    if (!micSupported || !recognitionRef.current) return;
-
-    setIsListening(true);
-    recognitionRef.current.start();
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchTerm.trim() || isLoading) return;
+  // Handle search
+  const handleSearch = async (term: string = searchTerm) => {
+    if (!term.trim()) return;
 
     setIsLoading(true);
-    setError(null);
-
     try {
-      const result = await getSlangDefinition(searchTerm);
-      setDefinition(result);
-
-      // Add to search history
-      const historyItem: SearchHistoryItem = {
-        term: searchTerm,
-        timestamp: Date.now(),
-        definition: result
-      };
-      addToSearchHistory(historyItem);
-      setSearchHistory(getSearchHistory());
-
-      // Update search count
-      const updatedPreferences = {
-        ...preferences,
-        searchCount: preferences.searchCount + 1
-      };
-      updateUserPreferences(updatedPreferences);
-      setPreferences(updatedPreferences);
+      const definition = await searchAPI.getDefinition(term);
+      setDefinition(definition);
+      setSearchTerm('');
 
       // Auto-speak if enabled
-      if (preferences.autoSpeak && audioContext) {
-        try {
-          const audioBuffer = await getSpeech(result.meaning);
-          const source = audioContext.createBufferSource();
-          source.buffer = await audioContext.decodeAudioData(audioBuffer);
-          source.connect(audioContext.destination);
-          source.start();
-        } catch (speechError) {
-          console.warn('Speech synthesis failed:', speechError);
-        }
+      if (preferences.autoSpeak) {
+        speakText(`${term}: ${definition.meaning}`);
       }
 
-      showToast(`Found definition for "${searchTerm}"`, 'success');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to get definition';
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFavoriteToggle = () => {
-    if (!definition) return;
-
-    const term = searchTerm;
-    const isCurrentlyFavorite = isFavorite(term);
-
-    if (isCurrentlyFavorite) {
-      removeFromFavorites(term);
-      showToast(`Removed "${term}" from favorites`, 'info');
-    } else {
-      const favoriteItem: FavoriteItem = {
-        term,
-        definition,
-        savedAt: Date.now()
-      };
-      addToFavorites(favoriteItem);
-      showToast(`Added "${term}" to favorites`, 'success');
-    }
-
-    setFavorites(getFavorites());
-
-    // Update favorite count
-    const updatedPreferences = {
-      ...preferences,
-      favoriteCount: getFavorites().length
-    };
-    updateUserPreferences(updatedPreferences);
-    setPreferences(updatedPreferences);
-  };
-
-  const handleLearnMore = async () => {
-    if (!wordOfTheDay.word) return;
-
-    setSearchTerm(wordOfTheDay.word);
-    setIsLoading(true);
-
-    try {
-      const result = await getSlangDefinition(wordOfTheDay.word);
-      setWordOfTheDay(prev => ({ ...prev, definition: result }));
-      setDefinition(result);
-
-      // Add to search history
-      const historyItem: SearchHistoryItem = {
-        term: wordOfTheDay.word,
-        timestamp: Date.now(),
-        definition: result
-      };
-      addToSearchHistory(historyItem);
-      setSearchHistory(getSearchHistory());
-
-      showToast(`Loaded definition for "${wordOfTheDay.word}"`, 'success');
-    } catch (err) {
-      showToast('Failed to load word of the day definition', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const generateQuizQuestions = (): QuizQuestion[] => {
-    const historyTerms = searchHistory.slice(0, 10); // Use recent history
-    const favoriteTerms = favorites.slice(0, 10); // Use some favorites
-    const allTerms = [...historyTerms, ...favoriteTerms].slice(0, 5); // Max 5 questions
-
-    return allTerms.map(item => {
-      const correctAnswer = item.definition.meaning;
-      const wrongAnswers = [
-        "A completely different meaning",
-        "Something unrelated",
-        "The opposite meaning",
-        "A made-up definition"
-      ].slice(0, 3);
-
-      const options = shuffleArray([correctAnswer, ...wrongAnswers]);
-
-      return {
-        term: item.term,
-        correctAnswer,
-        options,
-        definition: item.definition
-      };
-    });
-  };
-
-  const startQuiz = () => {
-    const questions = generateQuizQuestions();
-    if (questions.length === 0) {
-      showToast('Not enough search history for a quiz. Search for some terms first!', 'warning');
-      return;
-    }
-    setQuizQuestions(questions);
-    setIsQuizOpen(true);
-  };
-
-  const handleQuizComplete = (score: any) => {
-    addQuizScore(score);
-    setIsQuizOpen(false);
-    showToast(`Quiz completed! Score: ${score.score}/${score.total}`, 'success');
-  };
-
-  const handlePreferencesChange = (newPreferences: Partial<UserPreferences>) => {
-    const updated = { ...preferences, ...newPreferences };
-    updateUserPreferences(updated);
-    setPreferences(updated);
-    showToast('Settings updated', 'success');
-  };
-
-  const handleExportData = () => {
-    try {
-      const data = {
-        searchHistory: getSearchHistory(),
-        favorites: getFavorites(),
-        preferences: getUserPreferences(),
-        quizScores: getQuizScores(),
-        exportDate: new Date().toISOString(),
-        version: '1.0.0'
-      };
-
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `slangsupport-data-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      showToast('Data exported successfully', 'success');
+      showToast(`Found definition for "${term}"`, 'success');
     } catch (error) {
-      showToast('Failed to export data', 'error');
+      console.error('Search error:', error);
+      showToast('Failed to get definition. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleImportData = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string);
-
-        if (data.searchHistory) {
-          localStorage.setItem('slangsupport_search_history', JSON.stringify(data.searchHistory));
-        }
-        if (data.favorites) {
-          localStorage.setItem('slangsupport_favorites', JSON.stringify(data.favorites));
-        }
-        if (data.preferences) {
-          localStorage.setItem('slangsupport_preferences', JSON.stringify(data.preferences));
-        }
-        if (data.quizScores) {
-          localStorage.setItem('slangsupport_quiz_scores', JSON.stringify(data.quizScores));
-        }
-
-        // Refresh state
-        setSearchHistory(getSearchHistory());
-        setFavorites(getFavorites());
-        setPreferences(getUserPreferences());
-
-        showToast('Data imported successfully', 'success');
-      } catch (error) {
-        showToast('Failed to import data. Please check the file format.', 'error');
-      }
-    };
-    reader.readAsText(file);
+  // Speech functions
+  const startListening = () => {
+    if (recognitionRef.current && !isListening) {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
   };
 
-  const handleClearAllData = () => {
-    clearSearchHistory();
-    clearFavorites();
-    localStorage.removeItem('slangsupport_preferences');
-    localStorage.removeItem('slangsupport_quiz_scores');
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
 
-    setSearchHistory([]);
-    setFavorites([]);
-    setPreferences(getUserPreferences());
-    setDefinition(null);
-    setSearchTerm('');
+  const speakText = (text: string) => {
+    if ('speechSynthesis' in window) {
+      if (speechSynthesisRef.current) {
+        speechSynthesis.cancel();
+      }
 
-    showToast('All data cleared', 'info');
+      speechSynthesisRef.current = new SpeechSynthesisUtterance(text);
+      speechSynthesisRef.current.rate = preferences.speechRate;
+      speechSynthesisRef.current.voice = speechSynthesis.getVoices().find(voice => 
+        voice.name === preferences.speechVoice
+      ) || speechSynthesis.getVoices()[0];
+
+      speechSynthesis.speak(speechSynthesisRef.current);
+    }
+  };
+
+  // Favorites management
+  const handleToggleFavorite = async (term: string, definition: SlangDefinition) => {
+    try {
+      const isCurrentlyFavorite = favorites.some(fav => fav.term === term);
+      
+      if (isCurrentlyFavorite) {
+        await favoritesAPI.removeFavorite(term);
+        setFavorites(prev => prev.filter(fav => fav.term !== term));
+        showToast('Removed from favorites', 'info');
+      } else {
+        await favoritesAPI.addFavorite(term, definition);
+        setFavorites(prev => [...prev, { term, definition, savedAt: new Date().toISOString() }]);
+        showToast('Added to favorites', 'success');
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      showToast('Failed to update favorites', 'error');
+    }
+  };
+
+  // Preferences management
+  const handlePreferencesChange = async (newPreferences: Partial<UserPreferences>) => {
+    try {
+      const updatedPreferences = { ...preferences, ...newPreferences };
+      setPreferences(updatedPreferences);
+      
+      if (isAuthenticated) {
+        await preferencesAPI.updatePreferences(newPreferences);
+      }
+      
+      showToast('Settings updated', 'success');
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      showToast('Failed to update settings', 'error');
+    }
+  };
+
+  // Data management
+  const handleExportData = () => {
+    const data = {
+      searchHistory,
+      favorites,
+      preferences,
+      exportDate: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `slangsupport-data-${getTodayString()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Data exported successfully', 'success');
+  };
+
+  const handleImportData = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (data.searchHistory) setSearchHistory(data.searchHistory);
+      if (data.favorites) setFavorites(data.favorites);
+      if (data.preferences) setPreferences(data.preferences);
+
+      showToast('Data imported successfully', 'success');
+    } catch (error) {
+      console.error('Import error:', error);
+      showToast('Failed to import data', 'error');
+    }
+  };
+
+  const handleClearAllData = async () => {
+    try {
+      if (isAuthenticated) {
+        await Promise.all([
+          historyAPI.clearHistory(),
+          favoritesAPI.clearFavorites(),
+        ]);
+      }
+      
+      setSearchHistory([]);
+      setFavorites([]);
+      setPreferences({
+        ...preferences,
+        searchCount: 0,
+        favoriteCount: 0,
+        quizHighScore: 0,
+        totalQuizAttempts: 0,
+      });
+
+      showToast('All data cleared', 'info');
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      showToast('Failed to clear data', 'error');
+    }
+  };
+
+  // Quiz management
+  const handleQuizComplete = async (score: number, total: number) => {
+    try {
+      if (isAuthenticated) {
+        await quizAPI.saveScore(score, total);
+      }
+      
+      const newScore = { score, total, date: new Date().toISOString() };
+      setPreferences(prev => ({
+        ...prev,
+        quizHighScore: Math.max(prev.quizHighScore, score),
+        totalQuizAttempts: prev.totalQuizAttempts + 1,
+      }));
+
+      showToast(`Quiz completed! Score: ${score}/${total}`, 'success');
+    } catch (error) {
+      console.error('Error saving quiz score:', error);
+      showToast('Failed to save quiz score', 'error');
+    }
   };
 
   // Filter examples by category
-  const filteredExamples = selectedCategory
-    ? shuffledExamples.filter(example => example.category === selectedCategory)
-    : shuffledExamples;
-
-  const examplesToDisplay = showAllExamples ? filteredExamples : filteredExamples.slice(0, EXAMPLES_TO_SHOW);
-
-  // Get available categories from history and favorites
-  const availableCategories = Array.from(new Set([
-    ...(searchHistory || []).map(item => item.definition.category).filter(Boolean),
-    ...(favorites || []).map(item => item.definition.category).filter(Boolean)
-  ])) as Category[];
-
-  // Count searches today
-  const today = getTodayString();
-  const searchCount = (searchHistory || []).filter(item =>
-    new Date(item.timestamp).toDateString() === today
-  ).length;
+  const filteredExamples = selectedCategory 
+    ? ALL_EXAMPLES.filter(example => example.category === selectedCategory)
+    : ALL_EXAMPLES;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6 relative">
-      <style>{`
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
-        }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
-
-      {/* Header */}
-      <header className="w-full max-w-4xl mb-8">
-        <div className="text-center">
-          <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-2">
-            SlangSupport
-          </h1>
-          <p className="text-gray-400 text-lg mb-4">Your AI-powered slang dictionary</p>
-
-          {/* Quick Stats */}
-          <div className="flex justify-center gap-4 sm:gap-6 mt-4 text-sm text-gray-500 flex-wrap">
-            <span className="bg-gray-800 px-3 py-1 rounded-full">{searchCount} searches today</span>
-            <span className="bg-gray-800 px-3 py-1 rounded-full">{favorites.length} favorites</span>
-            <span className="bg-gray-800 px-3 py-1 rounded-full">{preferences.quizHighScore} quiz high score</span>
+    <ToastProvider>
+      <div className={`min-h-screen transition-colors duration-300 ${
+        preferences.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
+      }`}>
+        {/* Header */}
+        <header className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-3xl font-bold mb-2">SlangSupport</h1>
+            <p className="text-purple-100">AI-powered slang dictionary with voice search</p>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="w-full max-w-4xl flex-1">
-        {!definition ? (
-          <div className="animate-fade-in">
-            {/* Word of the Day */}
-            {wordOfTheDay.word && (
-              <WordOfTheDay
-                word={wordOfTheDay.word}
-                definition={wordOfTheDay.definition}
-                onLearnMore={handleLearnMore}
+        {/* Main Content */}
+        <main className="max-w-4xl mx-auto p-6 space-y-6">
+          {/* Search Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <div className="flex gap-4 mb-4">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Search for slang terms..."
+                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                disabled={isLoading}
               />
-            )}
-
-            {/* Category Filter */}
-            {availableCategories.length > 0 && (
-              <div className="mb-4">
-                <CategoryFilter
-                  selectedCategory={selectedCategory}
-                  onCategorySelect={setSelectedCategory}
-                  availableCategories={availableCategories}
-                />
-              </div>
-            )}
-
-            {/* Example Terms */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
-              {examplesToDisplay.map((example, index) => (
-                <button
-                  key={`${example.term}-${index}`}
-                  onClick={() => setSearchTerm(example.term)}
-                  className="bg-gray-800 hover:bg-gray-700 p-3 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200 text-left group"
-                >
-                  <div className="font-medium text-white group-hover:text-cyan-300 transition-colors">
-                    {example.term}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {example.category}
-                  </div>
-                </button>
-              ))}
+              <button
+                onClick={() => handleSearch()}
+                disabled={isLoading || !searchTerm.trim()}
+                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors duration-200"
+              >
+                {isLoading ? 'Searching...' : 'Search'}
+              </button>
+              <button
+                onClick={isListening ? stopListening : startListening}
+                className={`px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                  isListening 
+                    ? 'bg-red-600 hover:bg-red-700 text-white' 
+                    : 'bg-gray-600 hover:bg-gray-700 text-white'
+                }`}
+                disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
+              >
+                {isListening ? '🎤 Stop' : '🎤 Voice'}
+              </button>
             </div>
 
-            {/* Show More Button */}
-            {filteredExamples.length > EXAMPLES_TO_SHOW && (
-              <div className="text-center">
-                <button
-                  onClick={handleToggleShowMore}
-                  className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-6 py-2 rounded-lg border border-gray-700 hover:border-gray-600 transition-all duration-200"
-                >
-                  {showAllExamples ? 'Show Less' : `Show More (${filteredExamples.length - EXAMPLES_TO_SHOW} more)`}
-                </button>
-              </div>
-            )}
+            {/* Category Filter */}
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onCategorySelect={setSelectedCategory}
+              availableCategories={availableCategories}
+            />
           </div>
-        ) : (
-          <div className="animate-fade-in">
-            {/* Definition Display */}
-            <div className="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700 shadow-lg">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex-1 pr-4">
-                  <h2 className="text-3xl font-bold text-white mb-3">{searchTerm}</h2>
-                  {definition.category && (
-                    <CategoryBadge category={definition.category} size="md" />
-                  )}
+
+          {/* Definition Display */}
+          {definition && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                    {searchTerm || 'Definition'}
+                  </h2>
+                  <CategoryBadge category={definition.category} />
                 </div>
-                <button
-                  onClick={handleFavoriteToggle}
-                  className={`p-3 rounded-lg transition-all duration-200 ${isFavorite(searchTerm)
-                    ? 'text-pink-400 hover:text-pink-300 bg-pink-400/10'
-                    : 'text-gray-400 hover:text-pink-400 hover:bg-pink-400/10'
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => speakText(`${searchTerm}: ${definition.meaning}`)}
+                    className="p-2 text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                    aria-label="Speak definition"
+                  >
+                    🔊
+                  </button>
+                  <button
+                    onClick={() => handleToggleFavorite(searchTerm, definition)}
+                    className={`p-2 transition-colors ${
+                      favorites.some(fav => fav.term === searchTerm)
+                        ? 'text-yellow-500 hover:text-yellow-600'
+                        : 'text-gray-600 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
                     }`}
-                  aria-label={isFavorite(searchTerm) ? 'Remove from favorites' : 'Add to favorites'}
-                >
-                  <svg className="w-6 h-6" fill={isFavorite(searchTerm) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                </button>
+                    aria-label="Toggle favorite"
+                  >
+                    ⭐
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-300 mb-2">Meaning</h3>
-                  <p className="text-white text-lg leading-relaxed">{definition.meaning}</p>
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Meaning:</h3>
+                  <p className="text-gray-600 dark:text-gray-400">{definition.meaning}</p>
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-300 mb-2">Example</h3>
-                  <div className="bg-gray-700 rounded-lg p-4">
-                    <p className="text-gray-200 italic">"{definition.example}"</p>
-                  </div>
+                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Example:</h3>
+                  <p className="text-gray-600 dark:text-gray-400 italic">"{definition.example}"</p>
                 </div>
 
-                {/* Related Terms */}
                 {definition.relatedTerms && definition.relatedTerms.length > 0 && (
                   <RelatedTerms
-                    relatedTerms={definition.relatedTerms}
-                    onSearchTerm={setSearchTerm}
+                    terms={definition.relatedTerms}
+                    onTermClick={(term) => {
+                      setSearchTerm(term);
+                      handleSearch(term);
+                    }}
                   />
                 )}
               </div>
             </div>
+          )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <button
-                onClick={() => {
-                  setDefinition(null);
-                  setSearchTerm('');
-                  setError(null);
-                }}
-                className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white px-8 py-3 rounded-lg transition-all duration-200 font-medium shadow-lg"
-              >
-                Search Another Term
-              </button>
+          {/* Word of the Day */}
+          {wordOfTheDay && (
+            <WordOfTheDay
+              word={wordOfTheDay}
+              onWordClick={(term) => {
+                setSearchTerm(term);
+                handleSearch(term);
+              }}
+            />
+          )}
 
-              <button
-                onClick={startQuiz}
-                className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-500 text-white px-8 py-3 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 font-medium shadow-lg"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                Take Quiz
-              </button>
+          {/* Examples Grid */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 className="text-xl font-bold mb-4">Popular Terms</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {filteredExamples.map((example, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setSearchTerm(example.term);
+                    handleSearch(example.term);
+                  }}
+                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-purple-100 dark:hover:bg-purple-900 rounded-lg transition-colors duration-200 text-left"
+                >
+                  <div className="font-medium text-gray-900 dark:text-white">{example.term}</div>
+                  <CategoryBadge category={example.category} size="sm" />
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {/* Search Form */}
-        <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto mt-8">
-          <div className="relative mb-4">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={isListening ? "🎤 Listening... Speak now" : "e.g., 'rizz', 'iykyk', 'based'"}
-              className="w-full px-6 py-4 text-lg text-white bg-gray-800 border-2 border-gray-700 rounded-xl focus:ring-4 focus:ring-cyan-500/50 focus:border-cyan-500 focus:outline-none transition-all duration-300 placeholder-gray-500 pr-16 shadow-lg"
-              disabled={isLoading || isListening}
-            />
-
-            {/* Microphone Button */}
-            {micSupported && (
-              <button
-                type="button"
-                onClick={startListening}
-                disabled={isListening || isLoading}
-                className={`absolute right-4 top-1/2 transform -translate-y-1/2 p-3 rounded-lg transition-all duration-200 ${isListening
-                  ? 'bg-red-500 text-white animate-pulse'
-                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'
-                  }`}
-                aria-label={isListening ? 'Stop listening' : 'Start voice input'}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              </button>
-            )}
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-4 justify-center">
+            <button
+              onClick={() => setIsQuizOpen(true)}
+              className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors duration-200"
+            >
+              🧠 Take Quiz
+            </button>
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+            >
+              📚 History
+            </button>
+            <button
+              onClick={() => setIsFavoritesOpen(true)}
+              className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium transition-colors duration-200"
+            >
+              ⭐ Favorites
+            </button>
           </div>
+        </main>
 
-          <button
-            type="submit"
-            disabled={isLoading || !searchTerm.trim()}
-            className="w-full px-8 py-4 text-lg font-bold text-white bg-cyan-600 rounded-xl hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-3 shadow-lg shadow-cyan-500/20"
-          >
-            {isLoading ? (
-              <>
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                Searching...
-              </>
-            ) : 'Define'}
-          </button>
-        </form>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mt-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300 text-center">
-            {error}
-          </div>
-        )}
-      </main>
-
-      {/* Sidebar Components */}
-      <SearchHistory
-        history={searchHistory}
-        onSearchTerm={setSearchTerm}
-        onRemoveItem={(term) => {
-          removeFromSearchHistory(term);
-          setSearchHistory(getSearchHistory());
-          showToast(`Removed "${term}" from history`, 'info');
-        }}
-        onClearAll={() => {
-          clearSearchHistory();
-          setSearchHistory([]);
-          showToast('Search history cleared', 'info');
-        }}
-        isOpen={isHistoryOpen}
-        onToggle={() => setIsHistoryOpen(!isHistoryOpen)}
-      />
-
-      <Favorites
-        favorites={favorites}
-        onSearchTerm={setSearchTerm}
-        onRemoveFavorite={(term) => {
-          removeFromFavorites(term);
-          setFavorites(getFavorites());
-          showToast(`Removed "${term}" from favorites`, 'info');
-        }}
-        onClearAll={() => {
-          clearFavorites();
-          setFavorites([]);
-          showToast('Favorites cleared', 'info');
-        }}
-        isOpen={isFavoritesOpen}
-        onToggle={() => setIsFavoritesOpen(!isFavoritesOpen)}
-      />
-
-      <Settings
-        preferences={preferences}
-        onPreferencesChange={handlePreferencesChange}
-        onExportData={handleExportData}
-        onImportData={handleImportData}
-        onClearAllData={handleClearAllData}
-        isOpen={isSettingsOpen}
-        onToggle={() => setIsSettingsOpen(!isSettingsOpen)}
-      />
-
-      {/* Quiz Modal */}
-      {isQuizOpen && (
-        <Quiz
-          questions={quizQuestions}
-          onClose={() => setIsQuizOpen(false)}
-          onComplete={handleQuizComplete}
+        {/* Modals */}
+        <SearchHistory
+          history={searchHistory}
+          onTermClick={(term) => {
+            setSearchTerm(term);
+            handleSearch(term);
+          }}
+          onRemove={(id) => {
+            setSearchHistory(prev => prev.filter(item => item.id !== id));
+          }}
+          onClear={() => {
+            setSearchHistory([]);
+            showToast('History cleared', 'info');
+          }}
+          isOpen={isHistoryOpen}
+          onToggle={() => setIsHistoryOpen(!isHistoryOpen)}
         />
-      )}
-    </div>
-  );
-};
 
-const App: React.FC = () => {
-  return (
-    <ToastProvider>
-      <AppContent />
+        <Favorites
+          favorites={favorites}
+          onTermClick={(term) => {
+            setSearchTerm(term);
+            handleSearch(term);
+          }}
+          onRemove={(term) => {
+            setFavorites(prev => prev.filter(fav => fav.term !== term));
+            showToast('Removed from favorites', 'info');
+          }}
+          onClear={() => {
+            setFavorites([]);
+            showToast('Favorites cleared', 'info');
+          }}
+          isOpen={isFavoritesOpen}
+          onToggle={() => setIsFavoritesOpen(!isFavoritesOpen)}
+        />
+
+        <Settings
+          preferences={preferences}
+          onPreferencesChange={handlePreferencesChange}
+          onExportData={handleExportData}
+          onImportData={handleImportData}
+          onClearAllData={handleClearAllData}
+          isOpen={isSettingsOpen}
+          onToggle={() => setIsSettingsOpen(!isSettingsOpen)}
+        />
+
+        {/* Quiz Modal */}
+        {isQuizOpen && (
+          <Quiz
+            questions={[]} // Will be populated from user's search history
+            onComplete={handleQuizComplete}
+            onClose={() => setIsQuizOpen(false)}
+          />
+        )}
+      </div>
     </ToastProvider>
   );
 };
