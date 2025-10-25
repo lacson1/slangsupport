@@ -438,15 +438,9 @@ const AppContent: React.FC = () => {
     : ALL_EXAMPLES;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Modern Background with Animated Gradients */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-800">
-        <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 via-purple-500/20 to-blue-500/20 animate-pulse"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%222%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
-      </div>
-
-      {/* Modern Header */}
-      <header className="relative z-10 modern-glass-card modern-m-lg">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Clean Header */}
+      <header className="relative z-10 p-6">
         <ModernContainer>
           <div className="modern-flex-between">
             <div className="modern-fade-in">
@@ -454,7 +448,7 @@ const AppContent: React.FC = () => {
                 SlangSupport
               </ModernHeading>
               <ModernText className="modern-text-sm opacity-80">
-                AI-powered slang dictionary with voice search
+                AI-powered slang dictionary
               </ModernText>
             </div>
             <div className="modern-scale-in">
@@ -465,9 +459,9 @@ const AppContent: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 modern-container modern-p-lg">
-        {/* Modern Search Section */}
-        <div className="modern-slide-up modern-mb-xl">
+      <main className="relative z-10 modern-container px-6 pb-20">
+        {/* Clean Search Section */}
+        <div className="modern-slide-up mb-8">
           <ModernSearchBar
             value={searchTerm}
             onChange={setSearchTerm}
@@ -475,12 +469,12 @@ const AppContent: React.FC = () => {
             loading={isLoading}
             onVoiceClick={isListening ? stopListening : startListening}
             isListening={isListening}
-            placeholder="Search for slang terms..."
+            placeholder="Search slang terms..."
           />
 
-          {/* Modern Category Filter */}
-          <div className="modern-glass-card modern-mt-lg">
-            <ModernText className="modern-mb-md font-semibold">Filter by category:</ModernText>
+          {/* Simple Category Filter */}
+          <div className="modern-glass-card mt-4">
+            <ModernText className="mb-3 font-semibold">Categories:</ModernText>
             <div className="modern-flex modern-gap-sm flex-wrap">
               <ModernChip
                 label="All"
@@ -499,9 +493,9 @@ const AppContent: React.FC = () => {
           </div>
         </div>
 
-        {/* Modern Definition Display */}
+        {/* Clean Definition Display */}
         {definition && (
-          <div className="modern-bounce-in modern-mb-xl">
+          <div className="modern-bounce-in mb-8">
             <ModernDefinitionCard
               term={searchTerm || 'Definition'}
               definition={definition}
@@ -512,18 +506,15 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
-        {/* Modern Word of the Day */}
+        {/* Simple Word of the Day */}
         {wordOfTheDay && (
-          <div className="modern-fade-in modern-mb-xl">
+          <div className="modern-fade-in mb-8">
             <ModernCard className="modern-hover-glow">
-              <div className="modern-flex-between modern-mb-lg">
+              <div className="modern-flex-between mb-4">
                 <div>
-                  <ModernHeading level={3} gradient className="modern-mb-sm">
+                  <ModernHeading level={3} gradient className="mb-2">
                     Word of the Day
                   </ModernHeading>
-                  <ModernText className="modern-text-sm opacity-80">
-                    Discover new slang every day
-                  </ModernText>
                 </div>
                 <div className="modern-flex modern-gap-sm">
                   <ModernButton
@@ -548,13 +539,13 @@ const AppContent: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="modern-space-y-lg">
+              <div className="space-y-3">
                 <div>
-                  <ModernText className="modern-mb-sm font-semibold">Meaning:</ModernText>
+                  <ModernText className="mb-2 font-semibold">Meaning:</ModernText>
                   <ModernText className="modern-text-lg">{wordOfTheDay.meaning}</ModernText>
                 </div>
                 <div>
-                  <ModernText className="modern-mb-sm font-semibold">Example:</ModernText>
+                  <ModernText className="mb-2 font-semibold">Example:</ModernText>
                   <ModernText className="modern-text-lg italic">"{wordOfTheDay.example}"</ModernText>
                 </div>
               </div>
@@ -562,39 +553,39 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
-        {/* Modern Example Terms Grid */}
+        {/* Compact Example Terms */}
         <div className="modern-slide-up">
-          <ModernCard className="modern-mb-xl">
-            <ModernHeading level={2} gradient className="modern-mb-lg">
+          <ModernCard className="mb-8">
+            <ModernHeading level={2} gradient className="mb-4">
               Explore Slang
             </ModernHeading>
-            <ModernGrid cols={4} gap="md">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filteredExamples.map((example, index) => (
                 <ModernCard
                   key={example.term}
                   interactive
                   onClick={() => handleSearch(example.term)}
-                  className="modern-hover-lift modern-hover-glow"
+                  className="modern-hover-lift p-3"
                   style={{
-                    animationDelay: `${index * 0.1}s`
+                    animationDelay: `${index * 0.05}s`
                   }}
                 >
-                  <ModernHeading level={4} className="modern-mb-sm">
+                  <ModernHeading level={4} className="mb-2 text-sm">
                     {example.term}
                   </ModernHeading>
                   <ModernChip label={example.category} />
                 </ModernCard>
               ))}
-            </ModernGrid>
+            </div>
           </ModernCard>
         </div>
       </main>
 
-      {/* Modern Floating Action Buttons */}
-      <div className="fixed bottom-6 left-6 z-50 modern-flex flex-col modern-gap-sm">
+      {/* Simple Floating Action Buttons */}
+      <div className="fixed bottom-6 left-6 z-50 flex flex-col gap-3">
         <ModernFAB
           icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
@@ -603,7 +594,7 @@ const AppContent: React.FC = () => {
         />
         <ModernFAB
           icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.329 1.176l1.519 4.674c.3.921-.755 1.688-1.539 1.175l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.513-1.83-.254-1.539-1.175l1.519-4.674a1 1 0 00-.329-1.176l-3.976-2.888c-.784-.57-.382-1.81.588-1.81h4.915a1 1 0 00.95-.69l1.519-4.674z" />
             </svg>
           }
@@ -612,7 +603,7 @@ const AppContent: React.FC = () => {
         />
         <ModernFAB
           icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
           }

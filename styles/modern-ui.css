@@ -1,66 +1,51 @@
-/* Modern 21st Century UI Framework */
+/* Clean Modern UI Framework */
 :root {
-  /* Modern Color Palette */
+  /* Clean Color Palette */
   --modern-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --modern-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   --modern-accent: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  --modern-success: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-  --modern-warning: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-  --modern-error: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
   
   /* Glassmorphism Colors */
   --glass-bg: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.2);
   --glass-shadow: rgba(0, 0, 0, 0.1);
-  --glass-dark-bg: rgba(0, 0, 0, 0.1);
-  --glass-dark-border: rgba(255, 255, 255, 0.1);
   
-  /* Modern Spacing System */
+  /* Clean Spacing */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --space-lg: 1.5rem;
   --space-xl: 2rem;
-  --space-2xl: 3rem;
-  --space-3xl: 4rem;
   
   /* Modern Typography */
   --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
   
-  /* Modern Shadows */
+  /* Clean Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   
-  /* Modern Border Radius */
+  /* Clean Border Radius */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
   --radius-full: 9999px;
   
-  /* Modern Transitions */
+  /* Smooth Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-bounce: 500ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
-/* Dark Theme Overrides */
+/* Dark theme overrides */
 .theme-dark {
   --glass-bg: rgba(0, 0, 0, 0.2);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-shadow: rgba(0, 0, 0, 0.3);
-  --glass-dark-bg: rgba(0, 0, 0, 0.3);
-  --glass-dark-border: rgba(255, 255, 255, 0.05);
 }
 
-/* Modern Base Styles */
+/* Clean Base Styles */
 * {
   box-sizing: border-box;
 }
@@ -71,18 +56,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
 }
 
-.theme-dark body {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-}
-
-/* Modern Glassmorphism Components */
-
+/* Clean Glassmorphism Components */
 .modern-glass {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
@@ -97,25 +73,25 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-xl);
-  border-radius: var(--radius-2xl);
-  padding: var(--space-xl);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
   transition: all var(--transition-normal);
 }
 
 .modern-glass-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-2xl);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Modern Button System */
+/* Clean Button System */
 .modern-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-xl);
+  padding: var(--space-md) var(--space-lg);
   border: none;
   border-radius: var(--radius-lg);
   font-family: var(--font-primary);
@@ -130,21 +106,6 @@ body {
   user-select: none;
 }
 
-.modern-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left var(--transition-normal);
-}
-
-.modern-btn:hover::before {
-  left: 100%;
-}
-
 .modern-btn-primary {
   background: var(--modern-primary);
   color: white;
@@ -152,7 +113,7 @@ body {
 }
 
 .modern-btn-primary:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-lg);
 }
 
@@ -165,7 +126,7 @@ body {
 
 .modern-btn-secondary:hover {
   background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .modern-btn-ghost {
@@ -179,7 +140,7 @@ body {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
-/* Modern Input System */
+/* Clean Input System */
 .modern-input {
   width: 100%;
   padding: var(--space-md) var(--space-lg);
@@ -200,11 +161,11 @@ body {
 
 .modern-input:focus {
   border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
 }
 
-/* Modern Typography */
+/* Clean Typography */
 .modern-heading {
   font-family: var(--font-display);
   font-weight: 700;
@@ -244,20 +205,20 @@ body {
   line-height: 1.5;
 }
 
-/* Modern Card System */
+/* Clean Card System */
 .modern-card {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-2xl);
-  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
   box-shadow: var(--shadow-lg);
   transition: all var(--transition-normal);
 }
 
 .modern-card:hover {
-  transform: translateY(-8px);
-  box-shadow: var(--shadow-2xl);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
   border-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -267,10 +228,10 @@ body {
 }
 
 .modern-card-interactive:active {
-  transform: translateY(-4px) scale(0.98);
+  transform: translateY(-2px) scale(0.98);
 }
 
-/* Modern Chip System */
+/* Clean Chip System */
 .modern-chip {
   display: inline-flex;
   align-items: center;
@@ -290,7 +251,7 @@ body {
 
 .modern-chip:hover {
   background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
@@ -302,11 +263,11 @@ body {
 
 .modern-chip-selected:hover {
   background: var(--modern-primary);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-lg);
 }
 
-/* Modern Animation Classes */
+/* Clean Animation Classes */
 .modern-fade-in {
   animation: fadeIn 0.6s ease-out;
 }
@@ -320,7 +281,7 @@ body {
 }
 
 .modern-bounce-in {
-  animation: bounceIn 0.6s var(--transition-bounce);
+  animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 @keyframes fadeIn {
@@ -374,24 +335,11 @@ body {
   }
 }
 
-/* Modern Layout Utilities */
+/* Clean Layout Utilities */
 .modern-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 var(--space-lg);
-}
-
-.modern-grid {
-  display: grid;
-  gap: var(--space-lg);
-}
-
-.modern-grid-2 {
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-}
-
-.modern-grid-3 {
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
 .modern-flex {
@@ -423,12 +371,7 @@ body {
   gap: var(--space-lg);
 }
 
-/* Modern Spacing Utilities */
-.modern-p-sm { padding: var(--space-sm); }
-.modern-p-md { padding: var(--space-md); }
-.modern-p-lg { padding: var(--space-lg); }
-.modern-p-xl { padding: var(--space-xl); }
-
+/* Clean Spacing Utilities */
 .modern-m-sm { margin: var(--space-sm); }
 .modern-m-md { margin: var(--space-md); }
 .modern-m-lg { margin: var(--space-lg); }
@@ -444,7 +387,7 @@ body {
 .modern-mt-lg { margin-top: var(--space-lg); }
 .modern-mt-xl { margin-top: var(--space-xl); }
 
-/* Modern Responsive Design */
+/* Clean Responsive Design */
 @media (max-width: 768px) {
   .modern-container {
     padding: 0 var(--space-md);
@@ -459,45 +402,17 @@ body {
   }
   
   .modern-card {
-    padding: var(--space-lg);
+    padding: var(--space-md);
   }
   
   .modern-glass-card {
-    padding: var(--space-lg);
+    padding: var(--space-md);
   }
 }
 
-/* Modern Loading States */
-.modern-loading {
-  position: relative;
-  overflow: hidden;
-}
-
-.modern-loading::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  animation: loading 1.5s infinite;
-}
-
-@keyframes loading {
-  0% { left: -100%; }
-  100% { left: 100%; }
-}
-
-/* Modern Focus States */
-.modern-focus:focus {
-  outline: none;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
-}
-
-/* Modern Hover Effects */
+/* Clean Hover Effects */
 .modern-hover-lift:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   transition: transform var(--transition-normal);
 }
 
@@ -506,7 +421,7 @@ body {
   transition: box-shadow var(--transition-normal);
 }
 
-/* Modern Gradient Text */
+/* Clean Gradient Text */
 .modern-gradient-text {
   background: var(--modern-primary);
   -webkit-background-clip: text;
@@ -514,7 +429,7 @@ body {
   background-clip: text;
 }
 
-/* Modern Icon Styles */
+/* Clean Icon Styles */
 .modern-icon {
   width: 1.25rem;
   height: 1.25rem;
