@@ -1,7 +1,7 @@
 {
   "name": "slangsupport-backend",
   "version": "1.0.0",
-  "description": "Backend API for SlangSupport app",
+  "description": "Backend API for SlangSupport - AI-powered slang dictionary",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -11,30 +11,40 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx src/seed.ts"
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
   },
   "dependencies": {
-    "@google/genai": "^1.27.0",
     "@prisma/client": "^5.7.1",
-    "bcryptjs": "^2.4.3",
-    "compression": "^1.7.4",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "express-rate-limit": "^7.1.5",
+    "cors": "^2.8.5",
     "helmet": "^7.1.0",
-    "joi": "^17.11.0",
+    "compression": "^1.7.4",
+    "morgan": "^1.10.0",
+    "express-rate-limit": "^7.1.5",
+    "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.0"
+    "joi": "^17.11.0",
+    "dotenv": "^16.3.1",
+    "@google/generative-ai": "^0.2.1",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/compression": "^1.7.5",
-    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.5",
+    "@types/cors": "^2.8.17",
+    "@types/compression": "^1.7.5",
     "@types/morgan": "^1.9.9",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/multer": "^1.4.11",
+    "@types/uuid": "^9.0.7",
     "@types/node": "^20.10.5",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
     "prisma": "^5.7.1",
     "tsx": "^4.6.2",
     "typescript": "^5.3.3"
@@ -42,9 +52,12 @@
   "keywords": [
     "slang",
     "dictionary",
+    "ai",
+    "gemini",
     "api",
-    "backend"
+    "express",
+    "typescript"
   ],
-  "author": "Feyi's Digital Group",
+  "author": "SlangSupport Team",
   "license": "MIT"
 }

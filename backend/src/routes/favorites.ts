@@ -1,197 +1,119 @@
-import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { Router, Response } from 'express';
 import Joi from 'joi';
+import { prisma } from '../index';
+import { AuthRequest, authenticateToken } from '../middleware/auth';
 
 const router = Router();
-const prisma = new PrismaClient();
-
-// Validation schema
-const favoriteSchema = Joi.object({
-    term: Joi.string().min(1).max(100).required(),
-    meaning: Joi.string().required(),
-    example: Joi.string().required(),
-    category: Joi.string().optional()
-});
 
 // Get user's favorites
-export const getFavorites = async (req: AuthRequest, res: Response) => {
-    try {
-        const userId = req.user!.id;
-        const { page = '1', limit = '50', search } = req.query;
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const favorites = await prisma.favorite.findMany({
+      where: { userId: req.user!.id },
+      orderBy: { savedAt: 'desc' },
+    });
 
-        const pageNum = parseInt(page as string, 10);
-        const limitNum = parseInt(limit as string, 10);
-        const skip = (pageNum - 1) * limitNum;
+    res.json({ favorites });
+  } catch (error) {
+    console.error('Get favorites error:', error);
+    res.status(500).json({ error: 'Failed to get favorites' });
+  }
+});
 
-        const whereClause: any = { userId };
+// Add to favorites
+router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const schema = Joi.object({
+      term: Joi.string().required(),
+      definition: Joi.object().required(),
+    });
 
-        if (search) {
-            whereClause.OR = [
-                { term: { contains: search as string, mode: 'insensitive' } },
-                { meaning: { contains: search as string, mode: 'insensitive' } }
-            ];
-        }
-
-        const [favorites, total] = await Promise.all([
-            prisma.favorite.findMany({
-                where: whereClause,
-                orderBy: { savedAt: 'desc' },
-                skip,
-                take: limitNum,
-                select: {
-                    id: true,
-                    term: true,
-                    meaning: true,
-                    example: true,
-                    category: true,
-                    savedAt: true
-                }
-            }),
-            prisma.favorite.count({ where: whereClause })
-        ]);
-
-        res.json({
-            favorites,
-            pagination: {
-                page: pageNum,
-                limit: limitNum,
-                total,
-                pages: Math.ceil(total / limitNum)
-            }
-        });
-    } catch (error) {
-        console.error('Get favorites error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
     }
-};
 
-// Add favorite
-export const addFavorite = async (req: AuthRequest, res: Response) => {
-    try {
-        const { error, value } = favoriteSchema.validate(req.body);
-        if (error) {
-            return res.status(400).json({ error: error.details[0].message });
-        }
+    const { term, definition } = value;
 
-        const { term, meaning, example, category } = value;
-        const userId = req.user!.id;
+    const favorite = await prisma.favorite.create({
+      data: {
+        userId: req.user!.id,
+        term: term.toLowerCase(),
+        definition,
+      },
+    });
 
-        // Check if already favorited
-        const existingFavorite = await prisma.favorite.findUnique({
-            where: {
-                term_userId: {
-                    term: term.toLowerCase(),
-                    userId
-                }
-            }
-        });
+    // Update favorite count
+    await prisma.userPreferences.upsert({
+      where: { userId: req.user!.id },
+      update: {
+        favoriteCount: {
+          increment: 1,
+        },
+      },
+      create: {
+        userId: req.user!.id,
+        favoriteCount: 1,
+      },
+    });
 
-        if (existingFavorite) {
-            return res.status(409).json({ error: 'Term already in favorites' });
-        }
-
-        const favorite = await prisma.favorite.create({
-            data: {
-                term: term.toLowerCase(),
-                meaning,
-                example,
-                category,
-                userId
-            },
-            select: {
-                id: true,
-                term: true,
-                meaning: true,
-                example: true,
-                category: true,
-                savedAt: true
-            }
-        });
-
-        res.status(201).json({
-            message: 'Added to favorites',
-            favorite
-        });
-    } catch (error) {
-        console.error('Add favorite error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+    res.status(201).json({ favorite });
+  } catch (error) {
+    console.error('Add favorite error:', error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Term already in favorites' });
     }
-};
+    res.status(500).json({ error: 'Failed to add favorite' });
+  }
+});
 
-// Remove favorite
-export const removeFavorite = async (req: AuthRequest, res: Response) => {
-    try {
-        const { term } = req.params;
-        const userId = req.user!.id;
+// Remove from favorites
+router.delete('/:term', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { term } = req.params;
 
-        const favorite = await prisma.favorite.findUnique({
-            where: {
-                term_userId: {
-                    term: term.toLowerCase(),
-                    userId
-                }
-            }
-        });
+    await prisma.favorite.deleteMany({
+      where: {
+        userId: req.user!.id,
+        term: term.toLowerCase(),
+      },
+    });
 
-        if (!favorite) {
-            return res.status(404).json({ error: 'Favorite not found' });
-        }
+    // Update favorite count
+    await prisma.userPreferences.update({
+      where: { userId: req.user!.id },
+      data: {
+        favoriteCount: {
+          decrement: 1,
+        },
+      },
+    });
 
-        await prisma.favorite.delete({
-            where: { id: favorite.id }
-        });
-
-        res.json({ message: 'Removed from favorites' });
-    } catch (error) {
-        console.error('Remove favorite error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-
-// Check if term is favorited
-export const checkFavorite = async (req: AuthRequest, res: Response) => {
-    try {
-        const { term } = req.params;
-        const userId = req.user!.id;
-
-        const favorite = await prisma.favorite.findUnique({
-            where: {
-                term_userId: {
-                    term: term.toLowerCase(),
-                    userId
-                }
-            }
-        });
-
-        res.json({ isFavorited: !!favorite });
-    } catch (error) {
-        console.error('Check favorite error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
+    res.json({ message: 'Favorite removed successfully' });
+  } catch (error) {
+    console.error('Remove favorite error:', error);
+    res.status(500).json({ error: 'Failed to remove favorite' });
+  }
+});
 
 // Clear all favorites
-export const clearFavorites = async (req: AuthRequest, res: Response) => {
-    try {
-        const userId = req.user!.id;
+router.delete('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.favorite.deleteMany({
+      where: { userId: req.user!.id },
+    });
 
-        await prisma.favorite.deleteMany({
-            where: { userId }
-        });
+    // Reset favorite count
+    await prisma.userPreferences.update({
+      where: { userId: req.user!.id },
+      data: { favoriteCount: 0 },
+    });
 
-        res.json({ message: 'All favorites cleared' });
-    } catch (error) {
-        console.error('Clear favorites error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-
-// Routes
-router.get('/', authenticateToken, getFavorites);
-router.post('/', authenticateToken, addFavorite);
-router.delete('/:term', authenticateToken, removeFavorite);
-router.get('/:term/check', authenticateToken, checkFavorite);
-router.delete('/', authenticateToken, clearFavorites);
+    res.json({ message: 'All favorites cleared successfully' });
+  } catch (error) {
+    console.error('Clear favorites error:', error);
+    res.status(500).json({ error: 'Failed to clear favorites' });
+  }
+});
 
 export default router;

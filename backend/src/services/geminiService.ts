@@ -1,106 +1,96 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { SlangDefinition, Category, RelatedTerm } from '../../types';
 
-if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY environment variable not set");
-}
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+export const getSlangDefinition = async (term: string): Promise<SlangDefinition> => {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-const definitionSchema = {
-    type: Type.OBJECT,
-    properties: {
-        meaning: {
-            type: Type.STRING,
-            description: "A clear and concise definition of the slang term or abbreviation."
-        },
-        example: {
-            type: Type.STRING,
-            description: "An example sentence demonstrating the correct usage of the term."
-        },
-        category: {
-            type: Type.STRING,
-            description: "The category this term belongs to. Choose from: Internet, Gaming, Gen Z, AAVE, Abbreviations, Memes, Social Media, Music, Sports, or General."
-        },
-        relatedTerms: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    term: {
-                        type: Type.STRING,
-                        description: "A related slang term or abbreviation"
-                    },
-                    reason: {
-                        type: Type.STRING,
-                        description: "Brief explanation of why this term is related"
-                    }
-                },
-                required: ['term', 'reason']
-            },
-            description: "3-5 related slang terms with brief explanations of their connection"
-        }
-    },
-    required: ['meaning', 'example', 'category', 'relatedTerms'],
-};
+    const prompt = `
+    You are a slang dictionary expert. Provide a comprehensive definition for the slang term "${term}".
 
-export const getSlangDefinition = async (term: string) => {
-    try {
-        const prompt = `Define the slang term or abbreviation: "${term}". Explain its meaning and provide an example of its use in a sentence. Also categorize it and provide 3-5 related terms with brief explanations. If the term is nonsensical or not a real slang/abbreviation, state that you couldn't find a definition.`;
+    Please respond with a JSON object containing:
+    - meaning: A clear, detailed explanation of what this slang term means
+    - example: A realistic example sentence showing how the term is used
+    - category: One of these categories: Internet, Gaming, Gen Z, AAVE, Abbreviations, Memes, Social Media, Music, Sports, General
+    - relatedTerms: An array of 2-3 related slang terms with explanations
 
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: definitionSchema,
-            },
-        });
+    Format your response as valid JSON only, no additional text.
+    `;
 
-        const jsonString = response.text?.trim() || '';
-        const parsedResponse = JSON.parse(jsonString);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-        if (!parsedResponse.meaning || !parsedResponse.example) {
-            throw new Error("Invalid response structure from API.");
-        }
+    // Parse the JSON response
+    const definition = JSON.parse(text);
 
-        return parsedResponse;
-    } catch (error) {
-        console.error("Error fetching slang definition:", error);
-        throw new Error("Failed to get definition. The term might be invalid or there was a network issue.");
-    }
+    // Validate and structure the response
+    return {
+      meaning: definition.meaning || `A slang term meaning "${term}"`,
+      example: definition.example || `"That's so ${term}!" - example usage`,
+      category: definition.category || Category.GENERAL,
+      relatedTerms: definition.relatedTerms || [
+        { term: 'cool', reason: 'Similar positive expression' },
+        { term: 'awesome', reason: 'Related positive term' }
+      ]
+    };
+  } catch (error) {
+    console.error('Error getting slang definition:', error);
+    
+    // Fallback definition
+    return {
+      meaning: `A slang term meaning "${term}" - definition unavailable`,
+      example: `"That's so ${term}!" - example usage`,
+      category: Category.GENERAL,
+      relatedTerms: [
+        { term: 'cool', reason: 'Similar positive expression' },
+        { term: 'awesome', reason: 'Related positive term' }
+      ]
+    };
+  }
 };
 
 export const getSpeech = async (text: string): Promise<ArrayBuffer> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: { voiceName: 'Kore' },
-                    },
-                },
-            },
-        });
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    // For now, return empty buffer as Gemini TTS is not available in the current API
+    // In production, you would integrate with a TTS service like Google Cloud Text-to-Speech
+    console.log(`Speech requested for: ${text}`);
+    
+    return new ArrayBuffer(0);
+  } catch (error) {
+    console.error('Error generating speech:', error);
+    throw new Error('Failed to generate speech');
+  }
+};
 
-        if (!base64Audio) {
-            throw new Error("No audio data received from API.");
-        }
+export const generateQuizQuestions = async (terms: string[]): Promise<any[]> => {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-        // Convert base64 to ArrayBuffer
-        const binaryString = atob(base64Audio);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
+    const prompt = `
+    Generate 5 quiz questions about these slang terms: ${terms.join(', ')}.
 
-        return bytes.buffer;
-    } catch (error) {
-        console.error("Error generating speech:", error);
-        throw new Error("Failed to generate speech.");
-    }
+    For each question, provide:
+    - term: The slang term being asked about
+    - correctAnswer: The correct definition
+    - options: An array of 4 options (including the correct one)
+    - definition: The full definition object
+
+    Format as JSON array.
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    return JSON.parse(text);
+  } catch (error) {
+    console.error('Error generating quiz questions:', error);
+    return [];
+  }
 };

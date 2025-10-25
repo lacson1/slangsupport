@@ -28,13 +28,11 @@ model User {
 }
 
 model SearchHistory {
-  id        String   @id @default(cuid())
-  term      String
-  timestamp DateTime @default(now())
-  meaning   String
-  example   String
-  category  String?
-  userId    String
+  id         String   @id @default(cuid())
+  userId     String
+  term       String
+  definition Json     // Store the full SlangDefinition object
+  timestamp  DateTime @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -43,27 +41,25 @@ model SearchHistory {
 }
 
 model Favorite {
-  id        String   @id @default(cuid())
-  term      String
-  meaning   String
-  example   String
-  category  String?
-  savedAt   DateTime @default(now())
-  userId    String
+  id         String   @id @default(cuid())
+  userId     String
+  term       String
+  definition Json     // Store the full SlangDefinition object
+  savedAt    DateTime @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([term, userId])
+  @@unique([userId, term])
   @@map("favorites")
 }
 
 model QuizScore {
-  id        String   @id @default(cuid())
-  score     Int
-  total     Int
-  date      DateTime @default(now())
-  userId    String
+  id     String   @id @default(cuid())
+  userId String
+  score  Int
+  total  Int
+  date   DateTime @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -72,12 +68,22 @@ model QuizScore {
 }
 
 model UserPreferences {
-  id           String   @id @default(cuid())
-  autoSpeak    Boolean  @default(false)
-  theme        String   @default("dark")
-  lastWordOfDay String?
-  lastWordOfDayDate String?
-  userId       String   @unique
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  autoSpeak         Boolean  @default(true)
+  speechRate        Float    @default(1.0)
+  speechVoice       String   @default("default")
+  theme             String   @default("dark")
+  showHistory       Boolean  @default(true)
+  showFavorites     Boolean  @default(true)
+  lastWordOfDay     String   @default("")
+  lastWordOfDayDate String   @default("")
+  searchCount       Int      @default(0)
+  favoriteCount     Int      @default(0)
+  quizHighScore     Int      @default(0)
+  totalQuizAttempts Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -85,11 +91,12 @@ model UserPreferences {
   @@map("user_preferences")
 }
 
-model RelatedTerm {
-  id        String   @id @default(cuid())
-  term      String
-  reason    String
-  createdAt DateTime @default(now())
+model WordOfTheDay {
+  id          String   @id @default(cuid())
+  word        String   @unique
+  definition  Json     // Store the full SlangDefinition object
+  date        DateTime @default(now())
+  isActive    Boolean  @default(true)
 
-  @@map("related_terms")
+  @@map("word_of_the_day")
 }

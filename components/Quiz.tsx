@@ -171,7 +171,7 @@ export const Quiz: React.FC<QuizProps> = ({
               className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
               style={{
                 width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`
-              } as React.CSSProperties}
+              }}
             />
           </div>
         </div>

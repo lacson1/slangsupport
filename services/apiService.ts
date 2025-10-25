@@ -1,237 +1,192 @@
-// API service for SlangSupport backend integration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+import { SlangDefinition, SearchHistoryItem, FavoriteItem, UserPreferences, QuizScore } from '../types';
 
-interface ApiResponse<T> {
-    data?: T;
-    error?: string;
-    message?: string;
-}
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-class ApiClient {
-    private baseURL: string;
-    private token: string | null = null;
+// Helper function to get auth token
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('auth_token');
+};
 
-    constructor(baseURL: string) {
-        this.baseURL = baseURL;
-        this.token = localStorage.getItem('auth_token');
+// Helper function to make API requests
+const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const token = getAuthToken();
+  
+  const config: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
+    ...options,
+  };
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Network error' }));
+    throw new Error(error.error || 'Request failed');
+  }
+  
+  return response.json();
+};
+
+// Authentication API
+export const authAPI = {
+  register: async (email: string, username: string, password: string) => {
+    const response = await apiRequest('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, username, password }),
+    });
+    
+    if (response.token) {
+      localStorage.setItem('auth_token', response.token);
     }
+    
+    return response;
+  },
 
-    setToken(token: string) {
-        this.token = token;
-        localStorage.setItem('auth_token', token);
+  login: async (email: string, password: string) => {
+    const response = await apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    
+    if (response.token) {
+      localStorage.setItem('auth_token', response.token);
     }
+    
+    return response;
+  },
 
-    clearToken() {
-        this.token = null;
-        localStorage.removeItem('auth_token');
-    }
+  logout: () => {
+    localStorage.removeItem('auth_token');
+  },
 
-    private async request<T>(
-        endpoint: string,
-        options: RequestInit = {}
-    ): Promise<ApiResponse<T>> {
-        const url = `${this.baseURL}${endpoint}`;
-        const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        };
+  getProfile: () => apiRequest('/auth/profile'),
 
-        if (this.token) {
-            headers.Authorization = `Bearer ${this.token}`;
-        }
+  updateProfile: (data: { username?: string; email?: string }) =>
+    apiRequest('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 
-        try {
-            const response = await fetch(url, {
-                ...options,
-                headers,
-            });
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiRequest('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+};
 
-            const data = await response.json();
+// Search API
+export const searchAPI = {
+  getDefinition: async (term: string): Promise<SlangDefinition> => {
+    const response = await apiRequest('/search', {
+      method: 'POST',
+      body: JSON.stringify({ term }),
+    });
+    return response.definition;
+  },
 
-            if (!response.ok) {
-                return { error: data.error || 'Request failed' };
-            }
+  getSuggestions: () => apiRequest('/search/suggestions'),
 
-            return { data };
-        } catch (error) {
-            return { error: 'Network error' };
-        }
-    }
+  getTrending: () => apiRequest('/search/trending'),
+};
 
-    // Auth endpoints
-    async register(email: string, username: string, password: string) {
-        return this.request('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ email, username, password }),
-        });
-    }
+// Favorites API
+export const favoritesAPI = {
+  getFavorites: (): Promise<FavoriteItem[]> =>
+    apiRequest('/favorites').then(res => res.favorites),
 
-    async login(email: string, password: string) {
-        return this.request('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        });
-    }
+  addFavorite: (term: string, definition: SlangDefinition) =>
+    apiRequest('/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ term, definition }),
+    }),
 
-    async getProfile() {
-        return this.request('/user/profile');
-    }
+  removeFavorite: (term: string) =>
+    apiRequest(`/favorites/${encodeURIComponent(term)}`, {
+      method: 'DELETE',
+    }),
 
-    async updateProfile(data: { username?: string; email?: string }) {
-        return this.request('/user/profile', {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
-    }
+  clearFavorites: () =>
+    apiRequest('/favorites', {
+      method: 'DELETE',
+    }),
+};
 
-    async deleteAccount() {
-        return this.request('/user/account', {
-            method: 'DELETE',
-        });
-    }
+// History API
+export const historyAPI = {
+  getHistory: (page = 1, limit = 50) =>
+    apiRequest(`/history?page=${page}&limit=${limit}`),
 
-    // Search endpoints
-    async saveSearch(searchData: {
-        term: string;
-        meaning: string;
-        example: string;
-        category?: string;
-        relatedTerms?: Array<{ term: string; reason: string }>;
-    }) {
-        return this.request('/search/save', {
-            method: 'POST',
-            body: JSON.stringify(searchData),
-        });
-    }
+  removeFromHistory: (id: string) =>
+    apiRequest(`/history/${id}`, {
+      method: 'DELETE',
+    }),
 
-    async getSuggestions(query: string) {
-        return this.request(`/search/suggestions?q=${encodeURIComponent(query)}`);
-    }
+  clearHistory: () =>
+    apiRequest('/history', {
+      method: 'DELETE',
+    }),
+};
 
-    async getPopularTerms(limit = 20) {
-        return this.request(`/search/popular?limit=${limit}`);
-    }
+// Quiz API
+export const quizAPI = {
+  getScores: (): Promise<QuizScore[]> =>
+    apiRequest('/quiz/scores').then(res => res.scores),
 
-    // Favorites endpoints
-    async getFavorites(page = 1, limit = 50, search?: string) {
-        const params = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-        });
-        if (search) params.append('search', search);
+  saveScore: (score: number, total: number) =>
+    apiRequest('/quiz/score', {
+      method: 'POST',
+      body: JSON.stringify({ score, total }),
+    }),
 
-        return this.request(`/favorites?${params}`);
-    }
+  getStats: () => apiRequest('/quiz/stats'),
+};
 
-    async addFavorite(favoriteData: {
-        term: string;
-        meaning: string;
-        example: string;
-        category?: string;
-    }) {
-        return this.request('/favorites', {
-            method: 'POST',
-            body: JSON.stringify(favoriteData),
-        });
-    }
+// Preferences API
+export const preferencesAPI = {
+  getPreferences: (): Promise<UserPreferences> =>
+    apiRequest('/preferences').then(res => res.preferences),
 
-    async removeFavorite(term: string) {
-        return this.request(`/favorites/${encodeURIComponent(term)}`, {
-            method: 'DELETE',
-        });
-    }
+  updatePreferences: (preferences: Partial<UserPreferences>) =>
+    apiRequest('/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    }),
 
-    async checkFavorite(term: string) {
-        return this.request(`/favorites/${encodeURIComponent(term)}/check`);
-    }
+  resetPreferences: () =>
+    apiRequest('/preferences/reset', {
+      method: 'POST',
+    }),
+};
 
-    async clearFavorites() {
-        return this.request('/favorites', {
-            method: 'DELETE',
-        });
-    }
+// Word of the Day API
+export const wordOfDayAPI = {
+  getWordOfTheDay: () => apiRequest('/word-of-day'),
 
-    // History endpoints
-    async getHistory(page = 1, limit = 50, search?: string) {
-        const params = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-        });
-        if (search) params.append('search', search);
+  getHistory: (limit = 30) =>
+    apiRequest(`/word-of-day/history?limit=${limit}`),
+};
 
-        return this.request(`/history?${params}`);
-    }
+// Check if user is authenticated
+export const isAuthenticated = (): boolean => {
+  return !!getAuthToken();
+};
 
-    async removeHistoryItem(id: string) {
-        return this.request(`/history/${id}`, {
-            method: 'DELETE',
-        });
-    }
-
-    async clearHistory() {
-        return this.request('/history', {
-            method: 'DELETE',
-        });
-    }
-
-    async getHistoryStats() {
-        return this.request('/history/stats');
-    }
-
-    // Quiz endpoints
-    async saveQuizScore(score: number, total: number) {
-        return this.request('/quiz/score', {
-            method: 'POST',
-            body: JSON.stringify({ score, total }),
-        });
-    }
-
-    async getQuizScores(page = 1, limit = 20) {
-        return this.request(`/quiz/scores?page=${page}&limit=${limit}`);
-    }
-
-    async getQuizStats() {
-        return this.request('/quiz/stats');
-    }
-
-    async generateQuiz(limit = 5) {
-        return this.request(`/quiz/generate?limit=${limit}`);
-    }
-
-    // Preferences endpoints
-    async getPreferences() {
-        return this.request('/preferences');
-    }
-
-    async updatePreferences(preferences: {
-        autoSpeak?: boolean;
-        theme?: 'dark' | 'light';
-        lastWordOfDay?: string;
-        lastWordOfDayDate?: string;
-    }) {
-        return this.request('/preferences', {
-            method: 'PUT',
-            body: JSON.stringify(preferences),
-        });
-    }
-
-    async exportData() {
-        return this.request('/preferences/export');
-    }
-
-    async importData(data: any) {
-        return this.request('/preferences/import', {
-            method: 'POST',
-            body: JSON.stringify({ data }),
-        });
-    }
-
-    async clearAllData() {
-        return this.request('/preferences/clear', {
-            method: 'DELETE',
-        });
-    }
-}
-
-export const apiClient = new ApiClient(API_BASE_URL);
-export default apiClient;
+// Get current user from token (basic implementation)
+export const getCurrentUser = () => {
+  const token = getAuthToken();
+  if (!token) return null;
+  
+  try {
+    // Decode JWT token to get user info
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return {
+      id: payload.userId,
+      exp: payload.exp,
+    };
+  } catch {
+    return null;
+  }
+};

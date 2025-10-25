@@ -106,12 +106,9 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
     };
 
     return (
-        <div
-            className={`max-w-sm w-full shadow-lg rounded-lg border-l-4 p-4 transform transition-all duration-300 ease-in-out ${getToastStyles(toast.type)}`}
-            style={{
-                animation: 'slideInRight 0.3s ease-out',
-            }}
-        >
+    <div
+      className={`max-w-sm w-full shadow-lg rounded-lg border-l-4 p-4 transform transition-all duration-300 ease-in-out animate-slide-in-right ${getToastStyles(toast.type)}`}
+    >
             <div className="flex items-start">
                 <div className="flex-shrink-0">
                     <span className="text-lg font-bold">{getIcon(toast.type)}</span>

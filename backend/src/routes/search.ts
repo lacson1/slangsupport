@@ -1,180 +1,133 @@
-import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { Router, Response } from 'express';
 import Joi from 'joi';
+import { getSlangDefinition } from '../services/geminiService';
+import { prisma } from '../index';
+import { AuthRequest, optionalAuth } from '../middleware/auth';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Validation schema
 const searchSchema = Joi.object({
-    term: Joi.string().min(1).max(100).required(),
-    meaning: Joi.string().required(),
-    example: Joi.string().required(),
-    category: Joi.string().optional(),
-    relatedTerms: Joi.array().items(
-        Joi.object({
-            term: Joi.string().required(),
-            reason: Joi.string().required()
-        })
-    ).optional()
+  term: Joi.string().min(1).max(100).required(),
 });
 
-// Save search to history
-export const saveSearch = async (req: AuthRequest, res: Response) => {
-    try {
-        const { error, value } = searchSchema.validate(req.body);
-        if (error) {
-            return res.status(400).json({ error: error.details[0].message });
-        }
-
-        const { term, meaning, example, category, relatedTerms } = value;
-        const userId = req.user!.id;
-
-        // Check if search already exists for this user
-        const existingSearch = await prisma.searchHistory.findFirst({
-            where: {
-                userId,
-                term: term.toLowerCase()
-            }
-        });
-
-        if (existingSearch) {
-            // Update timestamp
-            const updatedSearch = await prisma.searchHistory.update({
-                where: { id: existingSearch.id },
-                data: { timestamp: new Date() },
-                select: {
-                    id: true,
-                    term: true,
-                    timestamp: true,
-                    meaning: true,
-                    example: true,
-                    category: true
-                }
-            });
-
-            return res.json({
-                message: 'Search updated successfully',
-                search: updatedSearch
-            });
-        }
-
-        // Create new search history entry
-        const searchHistory = await prisma.searchHistory.create({
-            data: {
-                term: term.toLowerCase(),
-                meaning,
-                example,
-                category,
-                userId
-            },
-            select: {
-                id: true,
-                term: true,
-                timestamp: true,
-                meaning: true,
-                example: true,
-                category: true
-            }
-        });
-
-        // Save related terms if provided
-        if (relatedTerms && relatedTerms.length > 0) {
-            await Promise.all(
-                relatedTerms.map(relatedTerm =>
-                    prisma.relatedTerm.create({
-                        data: {
-                            term: relatedTerm.term,
-                            reason: relatedTerm.reason
-                        }
-                    }).catch(() => {
-                        // Ignore duplicates
-                    })
-                )
-            );
-        }
-
-        res.status(201).json({
-            message: 'Search saved successfully',
-            search: searchHistory
-        });
-    } catch (error) {
-        console.error('Save search error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+// Search for slang definition
+router.post('/', optionalAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const { error, value } = searchSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
     }
-};
 
-// Get search suggestions
-export const getSuggestions = async (req: Request, res: Response) => {
-    try {
-        const { q } = req.query;
+    const { term } = value;
 
-        if (!q || typeof q !== 'string') {
-            return res.status(400).json({ error: 'Query parameter required' });
-        }
+    // Get definition from Gemini AI
+    const definition = await getSlangDefinition(term);
 
-        // Get suggestions from search history
-        const suggestions = await prisma.searchHistory.findMany({
-            where: {
-                term: {
-                    contains: q.toLowerCase(),
-                    mode: 'insensitive'
-                }
-            },
-            select: {
-                term: true,
-                meaning: true,
-                category: true
-            },
-            distinct: ['term'],
-            take: 10,
-            orderBy: {
-                timestamp: 'desc'
-            }
+    // If user is authenticated, save to search history
+    if (req.user) {
+      try {
+        await prisma.searchHistory.create({
+          data: {
+            userId: req.user.id,
+            term: term.toLowerCase(),
+            definition: definition,
+          },
         });
 
-        res.json({ suggestions });
-    } catch (error) {
-        console.error('Get suggestions error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        // Update search count in preferences
+        await prisma.userPreferences.upsert({
+          where: { userId: req.user.id },
+          update: {
+            searchCount: {
+              increment: 1,
+            },
+          },
+          create: {
+            userId: req.user.id,
+            searchCount: 1,
+          },
+        });
+      } catch (dbError) {
+        console.error('Error saving search history:', dbError);
+        // Continue even if history save fails
+      }
     }
-};
 
-// Get popular terms
-export const getPopularTerms = async (req: Request, res: Response) => {
-    try {
-        const { limit = '20' } = req.query;
-        const limitNum = parseInt(limit as string, 10);
+    res.json({
+      term,
+      definition,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Failed to get definition' });
+  }
+});
 
-        const popularTerms = await prisma.searchHistory.groupBy({
-            by: ['term'],
-            _count: {
-                term: true
-            },
-            orderBy: {
-                _count: {
-                    term: 'desc'
-                }
-            },
-            take: limitNum
-        });
+// Get search suggestions (popular terms)
+router.get('/suggestions', async (req: AuthRequest, res: Response) => {
+  try {
+    // Get popular search terms from the database
+    const popularTerms = await prisma.searchHistory.groupBy({
+      by: ['term'],
+      _count: {
+        term: true,
+      },
+      orderBy: {
+        _count: {
+          term: 'desc',
+        },
+      },
+      take: 10,
+    });
 
-        res.json({
-            popularTerms: popularTerms.map(item => ({
-                term: item.term,
-                count: item._count.term
-            }))
-        });
-    } catch (error) {
-        console.error('Get popular terms error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
+    const suggestions = popularTerms.map(item => ({
+      term: item.term,
+      count: item._count.term,
+    }));
 
-// Routes
-router.post('/save', authenticateToken, saveSearch);
-router.get('/suggestions', getSuggestions);
-router.get('/popular', getPopularTerms);
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Suggestions error:', error);
+    res.status(500).json({ error: 'Failed to get suggestions' });
+  }
+});
+
+// Get trending terms
+router.get('/trending', async (req: AuthRequest, res: Response) => {
+  try {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const trendingTerms = await prisma.searchHistory.groupBy({
+      by: ['term'],
+      _count: {
+        term: true,
+      },
+      where: {
+        timestamp: {
+          gte: oneWeekAgo,
+        },
+      },
+      orderBy: {
+        _count: {
+          term: 'desc',
+        },
+      },
+      take: 20,
+    });
+
+    const trending = trendingTerms.map(item => ({
+      term: item.term,
+      searches: item._count.term,
+    }));
+
+    res.json({ trending });
+  } catch (error) {
+    console.error('Trending error:', error);
+    res.status(500).json({ error: 'Failed to get trending terms' });
+  }
+});
 
 export default router;
