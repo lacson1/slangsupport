@@ -366,19 +366,19 @@ const AppContent: React.FC = () => {
     : ALL_EXAMPLES;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen md-bg-background md-text-primary">
       {/* Header */}
-      <MaterialAppBar
-        title="SlangSupport"
+      <MaterialAppBar 
+        title="SlangSupport" 
         subtitle="AI-powered slang dictionary with voice search"
       >
         <ThemeSwitcher />
       </MaterialAppBar>
 
       {/* Main Content */}
-      <MaterialContainer className="py-6">
+      <MaterialContainer className="py-6 md-text-readable">
         {/* Search Section */}
-        <MaterialCard elevation={2} className="mb-6">
+        <MaterialCard elevation={2} className="md-section md-bg-surface md-border-variant">
           <div className="md-flex md-gap-md md-mb-md">
             <div className="flex-1">
               <MaterialTextField
@@ -396,6 +396,7 @@ const AppContent: React.FC = () => {
                 onClick={() => handleSearch()}
                 disabled={isLoading || !searchTerm.trim()}
                 size="large"
+                className="md-button-primary"
               >
                 {isLoading ? 'Searching...' : 'Search'}
               </MaterialButton>
@@ -404,6 +405,7 @@ const AppContent: React.FC = () => {
                 onClick={isListening ? stopListening : startListening}
                 disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
                 size="large"
+                className={isListening ? 'md-button-primary' : 'md-button-secondary'}
               >
                 {isListening ? '🎤 Stop' : '🎤 Voice'}
               </MaterialButton>
@@ -411,8 +413,9 @@ const AppContent: React.FC = () => {
           </div>
 
           {/* Category Filter */}
+          <div className="md-divider"></div>
           <div className="md-mt-md">
-            <MaterialTypography variant="body2" color="secondary" className="md-mb-sm">
+            <MaterialTypography variant="body2" className="md-text-secondary md-mb-sm">
               Filter by category:
             </MaterialTypography>
             <div className="md-flex md-gap-sm flex-wrap">
