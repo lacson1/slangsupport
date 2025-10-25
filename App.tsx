@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { SlangDefinition, SearchHistoryItem, FavoriteItem, UserPreferences, QuizQuestion, Category } from './types';
-import { searchAPI, favoritesAPI, historyAPI, preferencesAPI, wordOfDayAPI, authAPI, isAuthenticated } from './services/apiService';
+import { searchAPI, favoritesAPI, historyAPI, preferencesAPI, wordOfDayAPI, authAPI, isAuthenticated as checkAuthStatus } from './services/apiService';
 import { getTodayString, getDaysSinceEpoch } from './utils/dateUtils';
 import { ToastProvider, useToast } from './components/Toast';
 import { SearchHistory } from './components/SearchHistory';
@@ -89,7 +89,7 @@ const AppContent: React.FC = () => {
 
   // Initialize authentication status
   useEffect(() => {
-    setIsAuthenticated(isAuthenticated());
+    setIsAuthenticated(checkAuthStatus());
   }, []);
 
   // Load user data on authentication
@@ -215,7 +215,7 @@ const AppContent: React.FC = () => {
 
       speechSynthesisRef.current = new SpeechSynthesisUtterance(text);
       speechSynthesisRef.current.rate = preferences.speechRate;
-      speechSynthesisRef.current.voice = speechSynthesis.getVoices().find(voice => 
+      speechSynthesisRef.current.voice = speechSynthesis.getVoices().find(voice =>
         voice.name === preferences.speechVoice
       ) || speechSynthesis.getVoices()[0];
 
@@ -227,7 +227,7 @@ const AppContent: React.FC = () => {
   const handleToggleFavorite = async (term: string, definition: SlangDefinition) => {
     try {
       const isCurrentlyFavorite = favorites.some(fav => fav.term === term);
-      
+
       if (isCurrentlyFavorite) {
         await favoritesAPI.removeFavorite(term);
         setFavorites(prev => prev.filter(fav => fav.term !== term));
@@ -248,11 +248,11 @@ const AppContent: React.FC = () => {
     try {
       const updatedPreferences = { ...preferences, ...newPreferences };
       setPreferences(updatedPreferences);
-      
+
       if (isAuthenticated) {
         await preferencesAPI.updatePreferences(newPreferences);
       }
-      
+
       showToast('Settings updated', 'success');
     } catch (error) {
       console.error('Error updating preferences:', error);
@@ -306,7 +306,7 @@ const AppContent: React.FC = () => {
           favoritesAPI.clearFavorites(),
         ]);
       }
-      
+
       setSearchHistory([]);
       setFavorites([]);
       setPreferences({
@@ -330,7 +330,7 @@ const AppContent: React.FC = () => {
       if (isAuthenticated) {
         await quizAPI.saveScore(score, total);
       }
-      
+
       const newScore = { score, total, date: new Date().toISOString() };
       setPreferences(prev => ({
         ...prev,
@@ -346,14 +346,13 @@ const AppContent: React.FC = () => {
   };
 
   // Filter examples by category
-  const filteredExamples = selectedCategory 
+  const filteredExamples = selectedCategory
     ? ALL_EXAMPLES.filter(example => example.category === selectedCategory)
     : ALL_EXAMPLES;
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      preferences.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
-    }`}>
+    <div className={`min-h-screen transition-colors duration-300 ${preferences.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
+      }`}>
       {/* Header */}
       <header className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
         <div className="max-w-4xl mx-auto">
@@ -385,11 +384,10 @@ const AppContent: React.FC = () => {
             </button>
             <button
               onClick={isListening ? stopListening : startListening}
-              className={`px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${
-                isListening 
-                  ? 'bg-red-600 hover:bg-red-700 text-white' 
+              className={`px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${isListening
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
                   : 'bg-gray-600 hover:bg-gray-700 text-white'
-              }`}
+                }`}
               disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
             >
               {isListening ? '🎤 Stop' : '🎤 Voice'}
@@ -424,11 +422,10 @@ const AppContent: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleToggleFavorite(searchTerm, definition)}
-                  className={`p-2 transition-colors ${
-                    favorites.some(fav => fav.term === searchTerm)
+                  className={`p-2 transition-colors ${favorites.some(fav => fav.term === searchTerm)
                       ? 'text-yellow-500 hover:text-yellow-600'
                       : 'text-gray-600 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
-                  }`}
+                    }`}
                   aria-label="Toggle favorite"
                 >
                   ⭐
