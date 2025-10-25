@@ -1,0 +1,7 @@
+{
+  "name": "SlangSupport",
+  "description": "SlangSupport is an application to find the meaning and example usage of modern slang and abbreviations. Simply type in a term and get an instant definition and context.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

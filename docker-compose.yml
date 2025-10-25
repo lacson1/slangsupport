@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: slangsupport-postgres
+    environment:
+      POSTGRES_DB: slangsupport
+      POSTGRES_USER: slangsupport
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-slangsupport123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U slangsupport -d slangsupport" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - slangsupport-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: slangsupport-backend
+    environment:
+      DATABASE_URL: postgresql://slangsupport:${POSTGRES_PASSWORD:-slangsupport123}@postgres:5432/slangsupport
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "3002:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - slangsupport-network
+    volumes:
+      - ./backend/logs:/app/logs
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  slangsupport-network:
+    driver: bridge

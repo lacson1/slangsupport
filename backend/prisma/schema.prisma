@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  searchHistory SearchHistory[]
+  favorites     Favorite[]
+  quizScores    QuizScore[]
+  preferences   UserPreferences?
+
+  @@map("users")
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  term      String
+  timestamp DateTime @default(now())
+  meaning   String
+  example   String
+  category  String?
+  userId    String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("search_history")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  term      String
+  meaning   String
+  example   String
+  category  String?
+  savedAt   DateTime @default(now())
+  userId    String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([term, userId])
+  @@map("favorites")
+}
+
+model QuizScore {
+  id        String   @id @default(cuid())
+  score     Int
+  total     Int
+  date      DateTime @default(now())
+  userId    String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("quiz_scores")
+}
+
+model UserPreferences {
+  id           String   @id @default(cuid())
+  autoSpeak    Boolean  @default(false)
+  theme        String   @default("dark")
+  lastWordOfDay String?
+  lastWordOfDayDate String?
+  userId       String   @unique
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model RelatedTerm {
+  id        String   @id @default(cuid())
+  term      String
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@map("related_terms")
+}
