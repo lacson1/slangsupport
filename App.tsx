@@ -12,12 +12,12 @@ import { RelatedTerms } from './components/RelatedTerms';
 import { CategoryBadge, CategoryFilter } from './components/CategoryBadge';
 import { Quiz } from './components/Quiz';
 import { Settings } from './components/Settings';
-import { 
-  MaterialAppBar, 
-  MaterialContainer, 
-  MaterialCard, 
-  MaterialTextField, 
-  MaterialButton, 
+import {
+  MaterialAppBar,
+  MaterialContainer,
+  MaterialCard,
+  MaterialTextField,
+  MaterialButton,
   MaterialChip,
   MaterialTypography,
   MaterialGrid
@@ -368,8 +368,8 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <MaterialAppBar 
-        title="SlangSupport" 
+      <MaterialAppBar
+        title="SlangSupport"
         subtitle="AI-powered slang dictionary with voice search"
       >
         <ThemeSwitcher />
@@ -540,7 +540,7 @@ const AppContent: React.FC = () => {
             ⭐ Favorites
           </button>
         </div>
-      </main>
+      </MaterialContainer>
 
       {/* Modals */}
       <SearchHistory
