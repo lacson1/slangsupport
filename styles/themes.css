@@ -1,0 +1,242 @@
+/* Theme CSS Variables */
+:root {
+  /* Default theme variables */
+  --color-primary: #8B5CF6;
+  --color-secondary: #3B82F6;
+  --color-background: #111827;
+  --color-surface: #1F2937;
+  --color-text: #FFFFFF;
+  --color-textSecondary: #D1D5DB;
+  --color-border: #374151;
+  --color-accent: #F59E0B;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+}
+
+/* Theme-specific styles */
+.theme-dark {
+  --color-primary: #8B5CF6;
+  --color-secondary: #3B82F6;
+  --color-background: #111827;
+  --color-surface: #1F2937;
+  --color-text: #FFFFFF;
+  --color-textSecondary: #D1D5DB;
+  --color-border: #374151;
+  --color-accent: #F59E0B;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+}
+
+.theme-light {
+  --color-primary: #7C3AED;
+  --color-secondary: #2563EB;
+  --color-background: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-text: #111827;
+  --color-textSecondary: #6B7280;
+  --color-border: #E5E7EB;
+  --color-accent: #D97706;
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-error: #DC2626;
+  --color-info: #2563EB;
+}
+
+.theme-neon {
+  --color-primary: #00FFFF;
+  --color-secondary: #FF00FF;
+  --color-background: #0A0A0A;
+  --color-surface: #1A1A1A;
+  --color-text: #00FFFF;
+  --color-textSecondary: #80FFFF;
+  --color-border: #333333;
+  --color-accent: #FFFF00;
+  --color-success: #00FF00;
+  --color-warning: #FFFF00;
+  --color-error: #FF0080;
+  --color-info: #0080FF;
+}
+
+.theme-sunset {
+  --color-primary: #FF6B6B;
+  --color-secondary: #4ECDC4;
+  --color-background: #FFF5F5;
+  --color-surface: #FFFFFF;
+  --color-text: #2D3748;
+  --color-textSecondary: #718096;
+  --color-border: #E2E8F0;
+  --color-accent: #FFD93D;
+  --color-success: #48BB78;
+  --color-warning: #ED8936;
+  --color-error: #F56565;
+  --color-info: #4299E1;
+}
+
+.theme-ocean {
+  --color-primary: #0EA5E9;
+  --color-secondary: #06B6D4;
+  --color-background: #0F172A;
+  --color-surface: #1E293B;
+  --color-text: #F1F5F9;
+  --color-textSecondary: #94A3B8;
+  --color-border: #334155;
+  --color-accent: #F59E0B;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #0EA5E9;
+}
+
+.theme-forest {
+  --color-primary: #059669;
+  --color-secondary: #16A34A;
+  --color-background: #F0FDF4;
+  --color-surface: #FFFFFF;
+  --color-text: #14532D;
+  --color-textSecondary: #4B5563;
+  --color-border: #D1FAE5;
+  --color-accent: #D97706;
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-error: #DC2626;
+  --color-info: #2563EB;
+}
+
+.theme-midnight {
+  --color-primary: #6366F1;
+  --color-secondary: #8B5CF6;
+  --color-background: #0C0A2E;
+  --color-surface: #1E1B4B;
+  --color-text: #E0E7FF;
+  --color-textSecondary: #A5B4FC;
+  --color-border: #3730A3;
+  --color-accent: #F59E0B;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+}
+
+/* Theme-aware utility classes */
+.theme-bg {
+  background-color: var(--color-background);
+}
+
+.theme-surface {
+  background-color: var(--color-surface);
+}
+
+.theme-text {
+  color: var(--color-text);
+}
+
+.theme-text-secondary {
+  color: var(--color-textSecondary);
+}
+
+.theme-border {
+  border-color: var(--color-border);
+}
+
+.theme-primary {
+  color: var(--color-primary);
+}
+
+.theme-primary-bg {
+  background-color: var(--color-primary);
+}
+
+.theme-secondary {
+  color: var(--color-secondary);
+}
+
+.theme-secondary-bg {
+  background-color: var(--color-secondary);
+}
+
+/* Neon theme special effects */
+.theme-neon .theme-primary {
+  text-shadow: 0 0 10px var(--color-primary);
+}
+
+.theme-neon .theme-primary-bg {
+  box-shadow: 0 0 20px var(--color-primary);
+}
+
+.theme-neon .theme-surface {
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+}
+
+/* Sunset theme special effects */
+.theme-sunset .theme-surface {
+  box-shadow: 0 4px 20px rgba(255, 107, 107, 0.1);
+}
+
+/* Ocean theme special effects */
+.theme-ocean .theme-surface {
+  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.1);
+}
+
+/* Forest theme special effects */
+.theme-forest .theme-surface {
+  box-shadow: 0 4px 20px rgba(5, 150, 105, 0.1);
+}
+
+/* Midnight theme special effects */
+.theme-midnight .theme-primary {
+  text-shadow: 0 0 10px var(--color-primary);
+}
+
+.theme-midnight .theme-surface {
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
+}
+
+/* Smooth theme transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Custom scrollbar for themes */
+.theme-dark ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.theme-dark ::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+.theme-dark ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-textSecondary);
+}
+
+.theme-light ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.theme-light ::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-textSecondary);
+}
+
+/* Neon theme scrollbar */
+.theme-neon ::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  box-shadow: 0 0 5px var(--color-primary);
+}

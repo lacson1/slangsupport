@@ -3,6 +3,8 @@ import { SlangDefinition, SearchHistoryItem, FavoriteItem, UserPreferences, Quiz
 import { searchAPI, favoritesAPI, historyAPI, preferencesAPI, wordOfDayAPI, authAPI, isAuthenticated as checkAuthStatus } from './services/apiService';
 import { getTodayString, getDaysSinceEpoch } from './utils/dateUtils';
 import { ToastProvider, useToast } from './components/Toast';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { SearchHistory } from './components/SearchHistory';
 import { Favorites } from './components/Favorites';
 import { WordOfTheDay } from './components/WordOfTheDay';
@@ -10,6 +12,7 @@ import { RelatedTerms } from './components/RelatedTerms';
 import { CategoryBadge, CategoryFilter } from './components/CategoryBadge';
 import { Quiz } from './components/Quiz';
 import { Settings } from './components/Settings';
+import './styles/themes.css';
 
 // FIX: Update type definitions for the Web Speech API to use addEventListener
 interface SpeechRecognitionEvent extends Event {
@@ -48,8 +51,9 @@ const ALL_EXAMPLES = [
   { term: 'yeet', category: Category.GENERAL },
 ];
 
-// Main App Content Component (inside ToastProvider)
+// Main App Content Component (inside ToastProvider and ThemeProvider)
 const AppContent: React.FC = () => {
+  const { currentTheme } = useTheme();
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [definition, setDefinition] = useState<SlangDefinition | null>(null);
@@ -351,20 +355,41 @@ const AppContent: React.FC = () => {
     : ALL_EXAMPLES;
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${preferences.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
-      }`}>
+    <div 
+      className="min-h-screen transition-colors duration-300 theme-bg theme-text"
+      style={{
+        backgroundColor: currentTheme.colors.background,
+        color: currentTheme.colors.text
+      }}
+    >
       {/* Header */}
-      <header className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">SlangSupport</h1>
-          <p className="text-purple-100">AI-powered slang dictionary with voice search</p>
+      <header 
+        className="p-6 shadow-lg theme-surface"
+        style={{
+          background: `linear-gradient(135deg, ${currentTheme.colors.primary}, ${currentTheme.colors.secondary})`,
+          color: currentTheme.colors.text
+        }}
+      >
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">SlangSupport</h1>
+            <p className="opacity-90">AI-powered slang dictionary with voice search</p>
+          </div>
+          <ThemeSwitcher />
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Search Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div 
+          className="rounded-xl shadow-lg p-6 theme-surface theme-border"
+          style={{
+            backgroundColor: currentTheme.colors.surface,
+            borderColor: currentTheme.colors.border,
+            borderWidth: '1px'
+          }}
+        >
           <div className="flex gap-4 mb-4">
             <input
               type="text"
@@ -372,21 +397,30 @@ const AppContent: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Search for slang terms..."
-              className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent theme-surface theme-text theme-border"
+              style={{
+                backgroundColor: currentTheme.colors.surface,
+                color: currentTheme.colors.text,
+                borderColor: currentTheme.colors.border,
+                '--tw-ring-color': currentTheme.colors.primary
+              } as React.CSSProperties}
               disabled={isLoading}
             />
             <button
               onClick={() => handleSearch()}
               disabled={isLoading || !searchTerm.trim()}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors duration-200"
+              className="px-6 py-3 text-white rounded-lg font-medium transition-colors duration-200 theme-primary-bg hover:opacity-90 disabled:opacity-50"
+              style={{
+                backgroundColor: currentTheme.colors.primary
+              }}
             >
               {isLoading ? 'Searching...' : 'Search'}
             </button>
             <button
               onClick={isListening ? stopListening : startListening}
               className={`px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${isListening
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-gray-600 hover:bg-gray-700 text-white'
                 }`}
               disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
             >
@@ -423,8 +457,8 @@ const AppContent: React.FC = () => {
                 <button
                   onClick={() => handleToggleFavorite(searchTerm, definition)}
                   className={`p-2 transition-colors ${favorites.some(fav => fav.term === searchTerm)
-                      ? 'text-yellow-500 hover:text-yellow-600'
-                      : 'text-gray-600 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
+                    ? 'text-yellow-500 hover:text-yellow-600'
+                    : 'text-gray-600 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
                     }`}
                   aria-label="Toggle favorite"
                 >
@@ -569,12 +603,14 @@ const AppContent: React.FC = () => {
   );
 };
 
-// Main App Component with ToastProvider
+// Main App Component with ToastProvider and ThemeProvider
 const App: React.FC = () => {
   return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
+    <ThemeProvider defaultTheme="dark">
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </ThemeProvider>
   );
 };
 
