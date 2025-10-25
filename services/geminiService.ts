@@ -1,123 +1,86 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { SlangDefinition, Category, RelatedTerm } from '../types';
 
-// Check for API key with fallback
-const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
-
-if (!apiKey) {
-  console.warn("GEMINI_API_KEY environment variable not set. Gemini features will be disabled.");
-}
-
-// Only initialize AI if API key is available
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-
-const definitionSchema = {
-  type: Type.OBJECT,
-  properties: {
-    meaning: {
-      type: Type.STRING,
-      description: "A clear and concise definition of the slang term or abbreviation."
-    },
-    example: {
-      type: Type.STRING,
-      description: "An example sentence demonstrating the correct usage of the term."
-    },
-    category: {
-      type: Type.STRING,
-      description: "The category this term belongs to. Choose from: Internet, Gaming, Gen Z, AAVE, Abbreviations, Memes, Social Media, Music, Sports, or General."
-    },
-    relatedTerms: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          term: {
-            type: Type.STRING,
-            description: "A related slang term or abbreviation"
-          },
-          reason: {
-            type: Type.STRING,
-            description: "Brief explanation of why this term is related"
-          }
-        },
-        required: ['term', 'reason']
-      },
-      description: "3-5 related slang terms with brief explanations of their connection"
-    }
+// Mock API service for development - replace with real Gemini API
+const MOCK_DEFINITIONS: Record<string, SlangDefinition> = {
+  'rizz': {
+    meaning: 'Charisma, charm, or attractiveness, especially in romantic contexts',
+    example: 'He\'s got serious rizz - everyone wants to talk to him at parties',
+    category: Category.GEN_Z,
+    relatedTerms: [
+      { term: 'charisma', reason: 'Similar concept of personal magnetism' },
+      { term: 'game', reason: 'Related to romantic appeal' },
+      { term: 'swagger', reason: 'Confident, attractive demeanor' }
+    ]
   },
-  required: ['meaning', 'example', 'category', 'relatedTerms'],
+  'based': {
+    meaning: 'Authentic, true to oneself, or expressing genuine opinions without caring about others\' reactions',
+    example: 'That take was so based - you said exactly what everyone was thinking',
+    category: Category.INTERNET,
+    relatedTerms: [
+      { term: 'real', reason: 'Authentic and genuine' },
+      { term: 'facts', reason: 'Speaking truth' },
+      { term: 'unfiltered', reason: 'Honest without filters' }
+    ]
+  },
+  'slay': {
+    meaning: 'To do something exceptionally well or look amazing',
+    example: 'She absolutely slayed that presentation today!',
+    category: Category.GENERAL,
+    relatedTerms: [
+      { term: 'killed it', reason: 'Performed exceptionally well' },
+      { term: 'crushed', reason: 'Succeeded impressively' },
+      { term: 'nailed', reason: 'Executed perfectly' }
+    ]
+  },
+  'no cap': {
+    meaning: 'No lie, telling the truth, being genuine',
+    example: 'That movie was amazing, no cap!',
+    category: Category.AAVE,
+    relatedTerms: [
+      { term: 'fr', reason: 'For real, genuine' },
+      { term: 'deadass', reason: 'Seriously, truly' },
+      { term: 'on god', reason: 'Swearing to truth' }
+    ]
+  },
+  'bet': {
+    meaning: 'Agreement, confirmation, or "okay"',
+    example: 'Want to grab lunch? Bet, let\'s go!',
+    category: Category.GEN_Z,
+    relatedTerms: [
+      { term: 'ok', reason: 'Agreement' },
+      { term: 'sure', reason: 'Confirmation' },
+      { term: 'deal', reason: 'Agreement' }
+    ]
+  }
 };
 
 export const getSlangDefinition = async (term: string): Promise<SlangDefinition> => {
-  try {
-    // If no API key, return a fallback response
-    if (!ai) {
-      return {
-        meaning: `"${term}" is a slang term. To get a detailed definition, please set up your Gemini API key in the environment variables.`,
-        example: `Here's how "${term}" might be used: "That was so ${term}!"`,
-        category: 'General',
-        relatedTerms: [
-          { term: 'slang', reason: 'General category' },
-          { term: 'trending', reason: 'Likely popular term' },
-          { term: 'casual', reason: 'Informal usage' }
-        ]
-      };
-    }
-
-    const prompt = `Define the slang term or abbreviation: "${term}". Explain its meaning and provide an example of its use in a sentence. Also categorize it and provide 3-5 related terms with brief explanations. If the term is nonsensical or not a real slang/abbreviation, state that you couldn't find a definition.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: definitionSchema,
-      },
-    });
-
-    const jsonString = response.text.trim();
-    const parsedResponse: SlangDefinition = JSON.parse(jsonString);
-
-    if (!parsedResponse.meaning || !parsedResponse.example) {
-      throw new Error("Invalid response structure from API.");
-    }
-
-    return parsedResponse;
-  } catch (error) {
-    console.error("Error fetching slang definition:", error);
-    throw new Error("Failed to get definition. The term might be invalid or there was a network issue.");
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const lowerTerm = term.toLowerCase();
+  
+  if (MOCK_DEFINITIONS[lowerTerm]) {
+    return MOCK_DEFINITIONS[lowerTerm];
   }
+  
+  // Generate a mock definition for unknown terms
+  return {
+    meaning: `A slang term meaning "${term}" - this is a mock definition for development`,
+    example: `"That's so ${term}!" - example usage`,
+    category: Category.GENERAL,
+    relatedTerms: [
+      { term: 'cool', reason: 'Similar positive expression' },
+      { term: 'awesome', reason: 'Related positive term' },
+      { term: 'great', reason: 'Similar meaning' }
+    ]
+  };
 };
 
-export const getSpeech = async (text: string): Promise<string> => {
-  try {
-    // If no API key, return mock audio
-    if (!ai) {
-      return 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT';
-    }
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
-      },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-    if (!base64Audio) {
-      throw new Error("No audio data received from API.");
-    }
-
-    return base64Audio;
-  } catch (error) {
-    console.error("Error generating speech:", error);
-    throw new Error("Failed to generate speech.");
-  }
+export const getSpeech = async (text: string): Promise<ArrayBuffer> => {
+  // Mock speech synthesis - in production, this would call Gemini TTS
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  // Return empty audio buffer for now
+  return new ArrayBuffer(0);
 };

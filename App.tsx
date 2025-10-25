@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { getSlangDefinition, getSpeech } from './services/mockApiService';
+import { getSlangDefinition, getSpeech } from './services/geminiService';
 import { SlangDefinition, SearchHistoryItem, FavoriteItem, UserPreferences, QuizQuestion, Category } from './types';
 import {
   getSearchHistory, addToSearchHistory, clearSearchHistory, removeFromSearchHistory,
