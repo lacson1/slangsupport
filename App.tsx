@@ -48,7 +48,8 @@ const ALL_EXAMPLES = [
   { term: 'yeet', category: Category.GENERAL },
 ];
 
-const App: React.FC = () => {
+// Main App Content Component (inside ToastProvider)
+const AppContent: React.FC = () => {
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [definition, setDefinition] = useState<SlangDefinition | null>(null);
@@ -350,225 +351,232 @@ const App: React.FC = () => {
     : ALL_EXAMPLES;
 
   return (
-    <ToastProvider>
-      <div className={`min-h-screen transition-colors duration-300 ${
-        preferences.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
-      }`}>
-        {/* Header */}
-        <header className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-2">SlangSupport</h1>
-            <p className="text-purple-100">AI-powered slang dictionary with voice search</p>
-          </div>
-        </header>
+    <div className={`min-h-screen transition-colors duration-300 ${
+      preferences.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
+    }`}>
+      {/* Header */}
+      <header className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold mb-2">SlangSupport</h1>
+          <p className="text-purple-100">AI-powered slang dictionary with voice search</p>
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <main className="max-w-4xl mx-auto p-6 space-y-6">
-          {/* Search Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div className="flex gap-4 mb-4">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Search for slang terms..."
-                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                disabled={isLoading}
-              />
-              <button
-                onClick={() => handleSearch()}
-                disabled={isLoading || !searchTerm.trim()}
-                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors duration-200"
-              >
-                {isLoading ? 'Searching...' : 'Search'}
-              </button>
-              <button
-                onClick={isListening ? stopListening : startListening}
-                className={`px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${
-                  isListening 
-                    ? 'bg-red-600 hover:bg-red-700 text-white' 
-                    : 'bg-gray-600 hover:bg-gray-700 text-white'
-                }`}
-                disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
-              >
-                {isListening ? '🎤 Stop' : '🎤 Voice'}
-              </button>
-            </div>
-
-            {/* Category Filter */}
-            <CategoryFilter
-              selectedCategory={selectedCategory}
-              onCategorySelect={setSelectedCategory}
-              availableCategories={availableCategories}
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto p-6 space-y-6">
+        {/* Search Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex gap-4 mb-4">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Search for slang terms..."
+              className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              disabled={isLoading}
             />
+            <button
+              onClick={() => handleSearch()}
+              disabled={isLoading || !searchTerm.trim()}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors duration-200"
+            >
+              {isLoading ? 'Searching...' : 'Search'}
+            </button>
+            <button
+              onClick={isListening ? stopListening : startListening}
+              className={`px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${
+                isListening 
+                  ? 'bg-red-600 hover:bg-red-700 text-white' 
+                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+              }`}
+              disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
+            >
+              {isListening ? '🎤 Stop' : '🎤 Voice'}
+            </button>
           </div>
 
-          {/* Definition Display */}
-          {definition && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
-                    {searchTerm || 'Definition'}
-                  </h2>
-                  <CategoryBadge category={definition.category} />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => speakText(`${searchTerm}: ${definition.meaning}`)}
-                    className="p-2 text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
-                    aria-label="Speak definition"
-                  >
-                    🔊
-                  </button>
-                  <button
-                    onClick={() => handleToggleFavorite(searchTerm, definition)}
-                    className={`p-2 transition-colors ${
-                      favorites.some(fav => fav.term === searchTerm)
-                        ? 'text-yellow-500 hover:text-yellow-600'
-                        : 'text-gray-600 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
-                    }`}
-                    aria-label="Toggle favorite"
-                  >
-                    ⭐
-                  </button>
-                </div>
-              </div>
+          {/* Category Filter */}
+          <CategoryFilter
+            selectedCategory={selectedCategory}
+            onCategorySelect={setSelectedCategory}
+            availableCategories={availableCategories}
+          />
+        </div>
 
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Meaning:</h3>
-                  <p className="text-gray-600 dark:text-gray-400">{definition.meaning}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Example:</h3>
-                  <p className="text-gray-600 dark:text-gray-400 italic">"{definition.example}"</p>
-                </div>
-
-                {definition.relatedTerms && definition.relatedTerms.length > 0 && (
-                  <RelatedTerms
-                    terms={definition.relatedTerms}
-                    onTermClick={(term) => {
-                      setSearchTerm(term);
-                      handleSearch(term);
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Word of the Day */}
-          {wordOfTheDay && (
-            <WordOfTheDay
-              word={wordOfTheDay}
-              onWordClick={(term) => {
-                setSearchTerm(term);
-                handleSearch(term);
-              }}
-            />
-          )}
-
-          {/* Examples Grid */}
+        {/* Definition Display */}
+        {definition && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold mb-4">Popular Terms</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-              {filteredExamples.map((example, index) => (
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                  {searchTerm || 'Definition'}
+                </h2>
+                <CategoryBadge category={definition.category} />
+              </div>
+              <div className="flex gap-2">
                 <button
-                  key={index}
-                  onClick={() => {
-                    setSearchTerm(example.term);
-                    handleSearch(example.term);
-                  }}
-                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-purple-100 dark:hover:bg-purple-900 rounded-lg transition-colors duration-200 text-left"
+                  onClick={() => speakText(`${searchTerm}: ${definition.meaning}`)}
+                  className="p-2 text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                  aria-label="Speak definition"
                 >
-                  <div className="font-medium text-gray-900 dark:text-white">{example.term}</div>
-                  <CategoryBadge category={example.category} size="sm" />
+                  🔊
                 </button>
-              ))}
+                <button
+                  onClick={() => handleToggleFavorite(searchTerm, definition)}
+                  className={`p-2 transition-colors ${
+                    favorites.some(fav => fav.term === searchTerm)
+                      ? 'text-yellow-500 hover:text-yellow-600'
+                      : 'text-gray-600 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
+                  }`}
+                  aria-label="Toggle favorite"
+                >
+                  ⭐
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Meaning:</h3>
+                <p className="text-gray-600 dark:text-gray-400">{definition.meaning}</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Example:</h3>
+                <p className="text-gray-600 dark:text-gray-400 italic">"{definition.example}"</p>
+              </div>
+
+              {definition.relatedTerms && definition.relatedTerms.length > 0 && (
+                <RelatedTerms
+                  terms={definition.relatedTerms}
+                  onTermClick={(term) => {
+                    setSearchTerm(term);
+                    handleSearch(term);
+                  }}
+                />
+              )}
             </div>
           </div>
+        )}
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-4 justify-center">
-            <button
-              onClick={() => setIsQuizOpen(true)}
-              className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors duration-200"
-            >
-              🧠 Take Quiz
-            </button>
-            <button
-              onClick={() => setIsHistoryOpen(true)}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
-            >
-              📚 History
-            </button>
-            <button
-              onClick={() => setIsFavoritesOpen(true)}
-              className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium transition-colors duration-200"
-            >
-              ⭐ Favorites
-            </button>
-          </div>
-        </main>
-
-        {/* Modals */}
-        <SearchHistory
-          history={searchHistory}
-          onTermClick={(term) => {
-            setSearchTerm(term);
-            handleSearch(term);
-          }}
-          onRemove={(id) => {
-            setSearchHistory(prev => prev.filter(item => item.id !== id));
-          }}
-          onClear={() => {
-            setSearchHistory([]);
-            showToast('History cleared', 'info');
-          }}
-          isOpen={isHistoryOpen}
-          onToggle={() => setIsHistoryOpen(!isHistoryOpen)}
-        />
-
-        <Favorites
-          favorites={favorites}
-          onTermClick={(term) => {
-            setSearchTerm(term);
-            handleSearch(term);
-          }}
-          onRemove={(term) => {
-            setFavorites(prev => prev.filter(fav => fav.term !== term));
-            showToast('Removed from favorites', 'info');
-          }}
-          onClear={() => {
-            setFavorites([]);
-            showToast('Favorites cleared', 'info');
-          }}
-          isOpen={isFavoritesOpen}
-          onToggle={() => setIsFavoritesOpen(!isFavoritesOpen)}
-        />
-
-        <Settings
-          preferences={preferences}
-          onPreferencesChange={handlePreferencesChange}
-          onExportData={handleExportData}
-          onImportData={handleImportData}
-          onClearAllData={handleClearAllData}
-          isOpen={isSettingsOpen}
-          onToggle={() => setIsSettingsOpen(!isSettingsOpen)}
-        />
-
-        {/* Quiz Modal */}
-        {isQuizOpen && (
-          <Quiz
-            questions={[]} // Will be populated from user's search history
-            onComplete={handleQuizComplete}
-            onClose={() => setIsQuizOpen(false)}
+        {/* Word of the Day */}
+        {wordOfTheDay && (
+          <WordOfTheDay
+            word={wordOfTheDay}
+            onWordClick={(term) => {
+              setSearchTerm(term);
+              handleSearch(term);
+            }}
           />
         )}
-      </div>
+
+        {/* Examples Grid */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <h3 className="text-xl font-bold mb-4">Popular Terms</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {filteredExamples.map((example, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setSearchTerm(example.term);
+                  handleSearch(example.term);
+                }}
+                className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-purple-100 dark:hover:bg-purple-900 rounded-lg transition-colors duration-200 text-left"
+              >
+                <div className="font-medium text-gray-900 dark:text-white">{example.term}</div>
+                <CategoryBadge category={example.category} size="sm" />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-4 justify-center">
+          <button
+            onClick={() => setIsQuizOpen(true)}
+            className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors duration-200"
+          >
+            🧠 Take Quiz
+          </button>
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+          >
+            📚 History
+          </button>
+          <button
+            onClick={() => setIsFavoritesOpen(true)}
+            className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium transition-colors duration-200"
+          >
+            ⭐ Favorites
+          </button>
+        </div>
+      </main>
+
+      {/* Modals */}
+      <SearchHistory
+        history={searchHistory}
+        onTermClick={(term) => {
+          setSearchTerm(term);
+          handleSearch(term);
+        }}
+        onRemove={(id) => {
+          setSearchHistory(prev => prev.filter(item => item.id !== id));
+        }}
+        onClear={() => {
+          setSearchHistory([]);
+          showToast('History cleared', 'info');
+        }}
+        isOpen={isHistoryOpen}
+        onToggle={() => setIsHistoryOpen(!isHistoryOpen)}
+      />
+
+      <Favorites
+        favorites={favorites}
+        onTermClick={(term) => {
+          setSearchTerm(term);
+          handleSearch(term);
+        }}
+        onRemove={(term) => {
+          setFavorites(prev => prev.filter(fav => fav.term !== term));
+          showToast('Removed from favorites', 'info');
+        }}
+        onClear={() => {
+          setFavorites([]);
+          showToast('Favorites cleared', 'info');
+        }}
+        isOpen={isFavoritesOpen}
+        onToggle={() => setIsFavoritesOpen(!isFavoritesOpen)}
+      />
+
+      <Settings
+        preferences={preferences}
+        onPreferencesChange={handlePreferencesChange}
+        onExportData={handleExportData}
+        onImportData={handleImportData}
+        onClearAllData={handleClearAllData}
+        isOpen={isSettingsOpen}
+        onToggle={() => setIsSettingsOpen(!isSettingsOpen)}
+      />
+
+      {/* Quiz Modal */}
+      {isQuizOpen && (
+        <Quiz
+          questions={[]} // Will be populated from user's search history
+          onComplete={handleQuizComplete}
+          onClose={() => setIsQuizOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Main App Component with ToastProvider
+const App: React.FC = () => {
+  return (
+    <ToastProvider>
+      <AppContent />
     </ToastProvider>
   );
 };
