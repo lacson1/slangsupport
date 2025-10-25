@@ -4,7 +4,7 @@
 
 ```env
 # Backend API URL (for development)
-VITE_API_URL=http://localhost:3002/api
+VITE_API_URL=http://localhost:3001/api
 
 # Optional: Enable debug mode
 VITE_DEBUG=true

@@ -32,14 +32,15 @@ export const Quiz: React.FC<QuizProps> = ({
 
     setShowResult(true);
 
-    if (selectedAnswer === currentQuestion.correctAnswer) {
+    const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+    if (isCorrect) {
       setScore(prev => prev + 1);
     }
 
     setTimeout(() => {
       if (isLastQuestion) {
         const finalScore: QuizScore = {
-          score,
+          score: isCorrect ? score + 1 : score,
           total: questions.length,
           date: Date.now()
         };
@@ -162,15 +163,14 @@ export const Quiz: React.FC<QuizProps> = ({
               Question {currentQuestionIndex + 1} of {questions.length}
             </span>
             <span className="text-sm text-gray-400">
-              Score: {score}/{currentQuestionIndex}
+              Score: {score}/{questions.length}
             </span>
           </div>
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div
               className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
               style={{
-                width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
-                '--progress-width': `${((currentQuestionIndex + 1) / questions.length) * 100}%`
+                width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`
               } as React.CSSProperties}
             />
           </div>
@@ -192,8 +192,8 @@ export const Quiz: React.FC<QuizProps> = ({
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedAnswer === option
-                      ? 'border-current'
-                      : 'border-gray-500'
+                    ? 'border-current'
+                    : 'border-gray-500'
                     }`}>
                     {showResult && option === currentQuestion.correctAnswer && (
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

@@ -93,7 +93,7 @@ Follow the prompts:
 
 ```bash
 vercel env add VITE_API_URL
-# Enter: http://localhost:3002/api
+# Enter: http://localhost:3001/api
 
 vercel env add VITE_DEBUG
 # Enter: false
