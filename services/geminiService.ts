@@ -17,14 +17,44 @@ const definitionSchema = {
     example: {
       type: Type.STRING,
       description: "An example sentence demonstrating the correct usage of the term."
+    },
+    vibe: {
+        type: Type.OBJECT,
+        description: "An analysis of the term's social context and formality.",
+        properties: {
+            formality: {
+                type: Type.STRING,
+                description: "A short, one-or-two-word classification of the term's formality. Examples: 'Extremely Casual', 'Online', 'Ironic', 'Neutral', 'Slightly Formal'."
+            },
+            description: {
+                type: Type.STRING,
+                description: "A brief, one-sentence description of the social context or 'vibe' of the term. For example, 'Used ironically online to express disappointment.'"
+            }
+        },
+        required: ['formality', 'description'],
+    },
+    relatedTerms: {
+        type: Type.ARRAY,
+        description: "A list of 3-5 similar or related slang terms.",
+        items: {
+            type: Type.STRING
+        }
     }
   },
-  required: ['meaning', 'example'],
+  required: ['meaning', 'example', 'vibe', 'relatedTerms'],
 };
 
 export const getSlangDefinition = async (term: string): Promise<SlangDefinition> => {
   try {
-    const prompt = `Define the slang term or abbreviation: "${term}". Explain its meaning and provide an example of its use in a sentence. If the term is nonsensical or not a real slang/abbreviation, please return a "meaning" that explicitly states you could not find a definition for the term, and an "example" that is "N/A".`;
+    const prompt = `Provide a comprehensive analysis for the slang term or abbreviation: "${term}".
+    
+    Your response must include:
+    1.  A clear definition ("meaning").
+    2.  An example sentence ("example").
+    3.  A "vibe" analysis, including a short "formality" classification and a one-sentence "description" of its social context.
+    4.  A list of 3-5 "relatedTerms".
+
+    If the term is nonsensical, not real slang, or you cannot find a definition, your response must explicitly state this in the "meaning" field, with other fields being "N/A" or empty arrays.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -61,7 +91,9 @@ export const getSpeech = async (text: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
+      // FIX: Use the full, explicit Content object structure, specifying the role.
+      // This resolves ambiguity and ensures the TTS model correctly processes the request.
+      contents: [{ role: 'user', parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
@@ -75,12 +107,21 @@ export const getSpeech = async (text: string): Promise<string> => {
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
     if (!base64Audio) {
+      // Add more detailed logging for debugging when no audio is returned.
+      const textResponse = response.text;
+      if (textResponse) {
+          console.error("TTS API returned a text response instead of audio:", textResponse);
+      }
+      if (response.promptFeedback) {
+          console.error("Prompt Feedback:", JSON.stringify(response.promptFeedback, null, 2));
+      }
       throw new Error("No audio data received from API.");
     }
     
     return base64Audio;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating speech:", error);
-    throw new Error("Failed to generate speech.");
+    // FIX: Propagate the actual error message instead of a generic one.
+    throw new Error(error.message || "Failed to generate speech.");
   }
 };

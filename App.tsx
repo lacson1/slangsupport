@@ -134,28 +134,58 @@ const InputForm: React.FC<InputFormProps> = ({ searchTerm, setSearchTerm, handle
   </form>
 );
 
+const VibeTag: React.FC<{ formality: string }> = ({ formality }) => {
+    const formalityLower = formality.toLowerCase();
+    let colorClasses = 'bg-gray-600 text-gray-200';
+    if (formalityLower.includes('casual')) {
+        colorClasses = 'bg-blue-600 text-blue-100';
+    } else if (formalityLower.includes('online') || formalityLower.includes('ironic')) {
+        colorClasses = 'bg-purple-600 text-purple-100';
+    } else if (formalityLower.includes('formal')) {
+        colorClasses = 'bg-green-600 text-green-100';
+    }
+
+    return (
+        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${colorClasses}`}>
+            {formality}
+        </span>
+    );
+};
+
 interface ResultDisplayProps {
   term: string;
   definition: SlangDefinition;
   onSpeak: () => void;
   isSpeaking: boolean;
   isAudioReady: boolean;
+  onRelatedTermClick: (term: string) => void;
 }
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ term, definition, onSpeak, isSpeaking, isAudioReady }) => {
+const ResultDisplay: React.FC<ResultDisplayProps> = ({ term, definition, onSpeak, isSpeaking, isAudioReady, onRelatedTermClick }) => {
     return (
       <div className="w-full max-w-2xl mt-8 p-4 sm:p-6 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-2xl shadow-xl animate-fade-in">
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-4 gap-4">
             <h2 className="text-2xl sm:text-3xl font-bold text-cyan-400 break-words capitalize flex-grow">{term}</h2>
             <button 
                 onClick={onSpeak} 
                 disabled={!isAudioReady}
-                className="p-2 rounded-full text-gray-400 enabled:hover:text-cyan-400 enabled:hover:bg-gray-700/50 disabled:text-gray-600 disabled:cursor-wait transition-colors flex-shrink-0 ml-4"
+                className="p-2 rounded-full text-gray-400 enabled:hover:text-cyan-400 enabled:hover:bg-gray-700/50 disabled:text-gray-600 disabled:cursor-wait transition-colors flex-shrink-0"
                 aria-label={isSpeaking ? "Stop reading" : "Read definition aloud"}
             >
                 {isSpeaking ? <StopIcon /> : <SpeakerIcon />}
             </button>
         </div>
+        
+        {definition.vibe && (
+            <div className="mb-6 p-3 bg-gray-900/40 rounded-lg">
+              <h3 className="text-sm font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                Vibe Check
+                <VibeTag formality={definition.vibe.formality} />
+              </h3>
+              <p className="text-base text-gray-300">{definition.vibe.description}</p>
+            </div>
+        )}
+
         <div>
           <h3 className="text-lg sm:text-xl font-semibold text-gray-300 mb-2">Meaning</h3>
           <p className="text-base sm:text-lg text-gray-200 leading-relaxed">{definition.meaning}</p>
@@ -164,6 +194,23 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ term, definition, onSpeak
           <h3 className="text-lg sm:text-xl font-semibold text-gray-300 mb-2">Example</h3>
           <p className="text-base sm:text-lg text-gray-200 leading-relaxed italic border-l-4 border-cyan-500 pl-4">"{definition.example}"</p>
         </div>
+
+        {definition.relatedTerms && definition.relatedTerms.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-700">
+                <h3 className="text-base font-semibold text-gray-400 mb-2">Related Terms</h3>
+                <div className="flex flex-wrap gap-2">
+                    {definition.relatedTerms.map(relatedTerm => (
+                        <button
+                            key={relatedTerm}
+                            onClick={() => onRelatedTermClick(relatedTerm)}
+                            className="px-3 py-1 text-sm text-cyan-300 bg-gray-700/50 rounded-full hover:bg-gray-700 hover:text-cyan-200 transition-colors"
+                        >
+                            {relatedTerm}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        )}
       </div>
     );
 };
@@ -213,6 +260,35 @@ const InitialStateDisplay: React.FC<InitialStateDisplayProps> = ({ examples, onE
     );
 };
 
+interface SearchHistoryProps {
+    history: string[];
+    onHistoryClick: (term: string) => void;
+    onClear: () => void;
+}
+
+const SearchHistory: React.FC<SearchHistoryProps> = ({ history, onHistoryClick, onClear }) => {
+    if (history.length === 0) return null;
+    return (
+        <div className="w-full max-w-2xl mt-6 animate-fade-in">
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Search History</h3>
+                <button onClick={onClear} className="text-xs text-gray-500 hover:text-red-400 transition-colors">Clear</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                {history.map(term => (
+                    <button
+                        key={term}
+                        onClick={() => onHistoryClick(term)}
+                        className="px-3 py-1 text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded-full hover:bg-gray-700 hover:text-cyan-300 transition-colors"
+                    >
+                        {term}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 const ALL_EXAMPLES = [
     'rizz', 'iykyk', 'based', 'GOAT', 'no cap', 'bet', 'slay', 'ghosting', 
@@ -220,6 +296,7 @@ const ALL_EXAMPLES = [
     'W', 'pog', 'copium', 'delulu', 'sheesh', 'yeet', 'vibe check'
 ];
 const EXAMPLES_TO_SHOW = 15;
+const MAX_HISTORY_LENGTH = 10;
 
 const shuffleArray = (array: string[]) => {
     let currentIndex = array.length, randomIndex;
@@ -256,6 +333,9 @@ export default function App() {
   const [shuffledExamples, setShuffledExamples] = useState<string[]>([]);
   const [showAllExamples, setShowAllExamples] = useState(false);
 
+  // --- History State ---
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
   const refreshExamples = useCallback(() => {
     setShuffledExamples(shuffleArray([...ALL_EXAMPLES]));
   }, []);
@@ -266,6 +346,14 @@ export default function App() {
 
   useEffect(() => {
     refreshExamples();
+    try {
+        const storedHistory = localStorage.getItem('slangSearchHistory');
+        if (storedHistory) {
+            setSearchHistory(JSON.parse(storedHistory));
+        }
+    } catch (e) {
+        console.error("Failed to parse search history from localStorage", e);
+    }
   }, [refreshExamples]);
 
   useEffect(() => {
@@ -309,6 +397,23 @@ export default function App() {
     });
   }, [audioContext]);
 
+  const updateSearchHistory = (term: string) => {
+    setSearchHistory(prevHistory => {
+        const lowerCaseTerm = term.toLowerCase();
+        const newHistory = [
+            lowerCaseTerm,
+            ...prevHistory.filter(item => item.toLowerCase() !== lowerCaseTerm)
+        ].slice(0, MAX_HISTORY_LENGTH);
+        
+        try {
+            localStorage.setItem('slangSearchHistory', JSON.stringify(newHistory));
+        } catch (e) {
+            console.error("Failed to save search history to localStorage", e);
+        }
+        return newHistory;
+    });
+  };
+
   const performSearch = useCallback(async (termToSearch: string) => {
     if (!termToSearch.trim()) {
       setError("Please enter a term to search.");
@@ -328,6 +433,7 @@ export default function App() {
       const result = await getSlangDefinition(trimmedTerm);
       setDefinition(result);
       prefetchAudio(trimmedTerm, result);
+      updateSearchHistory(trimmedTerm);
     } catch (err: any) {
       if (err.message?.startsWith('Term not found:')) {
         setError(`Sorry, we couldn't find a definition for "${trimmedTerm}". Try another?`);
@@ -462,6 +568,15 @@ export default function App() {
     }
   }, [isListening]);
 
+  const handleClearHistory = () => {
+      setSearchHistory([]);
+      try {
+          localStorage.removeItem('slangSearchHistory');
+      } catch (e) {
+          console.error("Failed to clear search history from localStorage", e);
+      }
+  }
+
   const examplesToDisplay = showAllExamples ? shuffledExamples : shuffledExamples.slice(0, EXAMPLES_TO_SHOW);
 
   return (
@@ -511,6 +626,12 @@ export default function App() {
           micSupported={micSupported}
         />
         
+        <SearchHistory 
+            history={searchHistory}
+            onHistoryClick={handleExampleClick}
+            onClear={handleClearHistory}
+        />
+        
         {isInitialState && (
             <InitialStateDisplay 
                 examples={examplesToDisplay} 
@@ -537,6 +658,7 @@ export default function App() {
             onSpeak={handleSpeak}
             isSpeaking={isSpeaking} 
             isAudioReady={isAudioReady}
+            onRelatedTermClick={handleExampleClick}
           />
         )}
       </main>
