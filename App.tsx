@@ -13,17 +13,22 @@ import { CategoryBadge, CategoryFilter } from './components/CategoryBadge';
 import { Quiz } from './components/Quiz';
 import { Settings } from './components/Settings';
 import {
-  MaterialAppBar,
-  MaterialContainer,
-  MaterialCard,
-  MaterialTextField,
-  MaterialButton,
-  MaterialChip,
-  MaterialTypography,
-  MaterialGrid
-} from './components/MaterialComponents';
+  ModernButton,
+  ModernInput,
+  ModernCard,
+  ModernChip,
+  ModernHeading,
+  ModernText,
+  ModernContainer,
+  ModernGrid,
+  ModernSearchBar,
+  ModernDefinitionCard,
+  ModernFAB,
+  ModernLoading
+} from './components/ModernComponents';
 import './styles/themes.css';
 import './styles/material-design.css';
+import './styles/modern-ui.css';
 
 // FIX: Update type definitions for the Web Speech API to use addEventListener
 interface SpeechRecognitionEvent extends Event {
@@ -72,9 +77,10 @@ const AppContent: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [wordOfTheDay, setWordOfTheDay] = useState<SlangDefinition | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>({
-    autoSpeak: true,
-    speechRate: 1.0,
+    autoSpeak: false,
+    speechRate: 1,
     speechVoice: 'default',
     theme: 'dark',
     showHistory: true,
@@ -86,11 +92,10 @@ const AppContent: React.FC = () => {
     quizHighScore: 0,
     totalQuizAttempts: 0,
   });
-  const [wordOfTheDay, setWordOfTheDay] = useState<SlangDefinition | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isFavoritesOpen, setIsFavoritesOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSearchHistoryOpen, setIsSearchHistoryOpen] = useState(false);
+  const [isFavoritesOpen, setIsFavoritesOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -193,64 +198,75 @@ const AppContent: React.FC = () => {
       setDefinition(definition);
       setSearchTerm('');
 
-      // Auto-speak if enabled
+      // Add to history
+      await historyAPI.addHistory({ term, definition });
+      setSearchHistory(prev => [{ term, definition, timestamp: new Date().toISOString() }, ...prev]);
+
+      // Update search count
+      const updatedPreferences = { ...preferences, searchCount: preferences.searchCount + 1 };
+      setPreferences(updatedPreferences);
+      await preferencesAPI.updatePreferences(updatedPreferences);
+
       if (preferences.autoSpeak) {
         speakText(`${term}: ${definition.meaning}`);
       }
-
-      showToast(`Found definition for "${term}"`, 'success');
     } catch (error) {
-      console.error('Search error:', error);
-      showToast('Failed to get definition. Please try again.', 'error');
+      console.error('Error fetching slang definition:', error);
+      showToast('Failed to get definition. The term might be invalid or there was a network issue.', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Speech functions
+  // Handle speech synthesis
+  const speakText = useCallback(async (text: string) => {
+    try {
+      const audioBlob = await searchAPI.getSpeech(text);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.playbackRate = preferences.speechRate;
+      audio.play();
+    } catch (error) {
+      console.error('Error generating speech:', error);
+      showToast('Failed to generate speech.', 'error');
+    }
+  }, [preferences.speechRate, showToast]);
+
+  // Start speech recognition
   const startListening = () => {
-    if (recognitionRef.current && !isListening) {
-      setIsListening(true);
+    if (recognitionRef.current) {
       recognitionRef.current.start();
+      setIsListening(true);
+      showToast('Listening...', 'info');
     }
   };
 
+  // Stop speech recognition
   const stopListening = () => {
-    if (recognitionRef.current && isListening) {
+    if (recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
+      showToast('Stopped listening.', 'info');
     }
   };
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      if (speechSynthesisRef.current) {
-        speechSynthesis.cancel();
-      }
-
-      speechSynthesisRef.current = new SpeechSynthesisUtterance(text);
-      speechSynthesisRef.current.rate = preferences.speechRate;
-      speechSynthesisRef.current.voice = speechSynthesis.getVoices().find(voice =>
-        voice.name === preferences.speechVoice
-      ) || speechSynthesis.getVoices()[0];
-
-      speechSynthesis.speak(speechSynthesisRef.current);
-    }
-  };
-
-  // Favorites management
+  // Handle favorite toggle
   const handleToggleFavorite = async (term: string, definition: SlangDefinition) => {
     try {
-      const isCurrentlyFavorite = favorites.some(fav => fav.term === term);
-
-      if (isCurrentlyFavorite) {
+      if (favorites.some(fav => fav.term === term)) {
         await favoritesAPI.removeFavorite(term);
         setFavorites(prev => prev.filter(fav => fav.term !== term));
-        showToast('Removed from favorites', 'info');
+        showToast(`Removed "${term}" from favorites`, 'info');
+        const updatedPreferences = { ...preferences, favoriteCount: preferences.favoriteCount - 1 };
+        setPreferences(updatedPreferences);
+        await preferencesAPI.updatePreferences(updatedPreferences);
       } else {
-        await favoritesAPI.addFavorite(term, definition);
-        setFavorites(prev => [...prev, { term, definition, savedAt: new Date().toISOString() }]);
-        showToast('Added to favorites', 'success');
+        await favoritesAPI.addFavorite({ term, definition });
+        setFavorites(prev => [...prev, { term, definition, timestamp: new Date().toISOString() }]);
+        showToast(`Added "${term}" to favorites`, 'success');
+        const updatedPreferences = { ...preferences, favoriteCount: preferences.favoriteCount + 1 };
+        setPreferences(updatedPreferences);
+        await preferencesAPI.updatePreferences(updatedPreferences);
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
@@ -258,95 +274,151 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Preferences management
+  // Handle preferences change
   const handlePreferencesChange = async (newPreferences: Partial<UserPreferences>) => {
+    const updatedPreferences = { ...preferences, ...newPreferences };
+    setPreferences(updatedPreferences);
     try {
-      const updatedPreferences = { ...preferences, ...newPreferences };
-      setPreferences(updatedPreferences);
-
-      if (isAuthenticated) {
-        await preferencesAPI.updatePreferences(newPreferences);
-      }
-
+      await preferencesAPI.updatePreferences(updatedPreferences);
       showToast('Settings updated', 'success');
     } catch (error) {
       console.error('Error updating preferences:', error);
-      showToast('Failed to update settings', 'error');
+      showToast('Failed to save settings', 'error');
     }
   };
 
-  // Data management
+  // Handle data export
   const handleExportData = () => {
-    const data = {
-      searchHistory,
-      favorites,
-      preferences,
-      exportDate: new Date().toISOString(),
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const data = { searchHistory, favorites, preferences };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `slangsupport-data-${getTodayString()}.json`;
+    a.download = 'slangsupport_data.json';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
     showToast('Data exported successfully', 'success');
   };
 
-  const handleImportData = async (file: File) => {
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
+  // Handle data import
+  const handleImportData = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const importedData = JSON.parse(event.target?.result as string);
+        if (importedData.searchHistory && importedData.favorites && importedData.preferences) {
+          setSearchHistory(importedData.searchHistory);
+          setFavorites(importedData.favorites);
+          setPreferences(importedData.preferences);
 
-      if (data.searchHistory) setSearchHistory(data.searchHistory);
-      if (data.favorites) setFavorites(data.favorites);
-      if (data.preferences) setPreferences(data.preferences);
+          // Update backend
+          await historyAPI.clearHistory();
+          await historyAPI.addBulkHistory(importedData.searchHistory);
+          await favoritesAPI.clearFavorites();
+          await favoritesAPI.addBulkFavorites(importedData.favorites);
+          await preferencesAPI.updatePreferences(importedData.preferences);
 
-      showToast('Data imported successfully', 'success');
-    } catch (error) {
-      console.error('Import error:', error);
-      showToast('Failed to import data', 'error');
-    }
+          showToast('Data imported successfully', 'success');
+        } else {
+          throw new Error('Invalid data format');
+        }
+      } catch (error) {
+        console.error('Error importing data:', error);
+        showToast('Failed to import data. Invalid file format.', 'error');
+      }
+    };
+    reader.readAsText(file);
   };
 
+  // Handle clear all data
   const handleClearAllData = async () => {
     try {
-      if (isAuthenticated) {
-        await Promise.all([
-          historyAPI.clearHistory(),
-          favoritesAPI.clearFavorites(),
-        ]);
-      }
-
+      await Promise.all([
+        historyAPI.clearHistory(),
+        favoritesAPI.clearFavorites(),
+        preferencesAPI.resetPreferences(),
+      ]);
       setSearchHistory([]);
       setFavorites([]);
       setPreferences({
-        ...preferences,
+        autoSpeak: false,
+        speechRate: 1,
+        speechVoice: 'default',
+        theme: 'dark',
+        showHistory: true,
+        showFavorites: true,
+        lastWordOfDay: '',
+        lastWordOfDayDate: '',
         searchCount: 0,
         favoriteCount: 0,
         quizHighScore: 0,
         totalQuizAttempts: 0,
       });
-
       showToast('All data cleared', 'info');
     } catch (error) {
-      console.error('Error clearing data:', error);
-      showToast('Failed to clear data', 'error');
+      console.error('Error clearing all data:', error);
+      showToast('Failed to clear all data', 'error');
     }
   };
 
-  // Quiz management
+  // Handle clear search history
+  const handleClearSearchHistory = async () => {
+    try {
+      await historyAPI.clearHistory();
+      setSearchHistory([]);
+      showToast('Search history cleared', 'info');
+    } catch (error) {
+      console.error('Error clearing search history:', error);
+      showToast('Failed to clear search history', 'error');
+    }
+  };
+
+  // Handle remove from search history
+  const handleRemoveFromSearchHistory = async (id: string) => {
+    try {
+      await historyAPI.removeFromHistory(id);
+      setSearchHistory(prev => prev.filter(item => item.id !== id));
+      showToast('Removed from history', 'info');
+    } catch (error) {
+      console.error('Error removing from history:', error);
+      showToast('Failed to remove from history', 'error');
+    }
+  };
+
+  // Handle clear favorites
+  const handleClearFavorites = async () => {
+    try {
+      await favoritesAPI.clearFavorites();
+      setFavorites([]);
+      showToast('Favorites cleared', 'info');
+    } catch (error) {
+      console.error('Error clearing favorites:', error);
+      showToast('Failed to clear favorites', 'error');
+    }
+  };
+
+  // Handle remove from favorites
+  const handleRemoveFromFavorites = async (term: string) => {
+    try {
+      await favoritesAPI.removeFavorite(term);
+      setFavorites(prev => prev.filter(fav => fav.term !== term));
+      showToast('Removed from favorites', 'info');
+    } catch (error) {
+      console.error('Error removing from favorites:', error);
+      showToast('Failed to remove from favorites', 'error');
+    }
+  };
+
+  // Handle quiz completion
   const handleQuizComplete = async (score: number, total: number) => {
     try {
-      if (isAuthenticated) {
-        await quizAPI.saveScore(score, total);
-      }
-
-      const newScore = { score, total, date: new Date().toISOString() };
+      await preferencesAPI.updatePreferences({
+        quizHighScore: Math.max(preferences.quizHighScore, score),
+        totalQuizAttempts: preferences.totalQuizAttempts + 1,
+      });
       setPreferences(prev => ({
         ...prev,
         quizHighScore: Math.max(prev.quizHighScore, score),
@@ -366,66 +438,57 @@ const AppContent: React.FC = () => {
     : ALL_EXAMPLES;
 
   return (
-    <div className="min-h-screen md-bg-background md-text-primary">
-      {/* Header */}
-      <MaterialAppBar
-        title="SlangSupport"
-        subtitle="AI-powered slang dictionary with voice search"
-      >
-        <ThemeSwitcher />
-      </MaterialAppBar>
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Modern Background with Animated Gradients */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-800">
+        <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 via-purple-500/20 to-blue-500/20 animate-pulse"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%23ffffff\" fill-opacity=\"0.05\"%3E%3Ccircle cx=\"30\" cy=\"30\" r=\"2\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+      </div>
 
-      {/* Main Content */}
-      <MaterialContainer className="py-6 md-text-readable">
-        {/* Search Section */}
-        <MaterialCard elevation={2} className="md-section md-bg-surface md-border-variant">
-          <div className="md-flex md-gap-md md-mb-md">
-            <div className="flex-1">
-              <MaterialTextField
-                label="Search for slang terms"
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Type a slang term..."
-                type="search"
-                disabled={isLoading}
-              />
+      {/* Modern Header */}
+      <header className="relative z-10 modern-glass-card modern-m-lg">
+        <ModernContainer>
+          <div className="modern-flex-between">
+            <div className="modern-fade-in">
+              <ModernHeading level={1} gradient className="modern-mb-sm">
+                SlangSupport
+              </ModernHeading>
+              <ModernText className="modern-text-sm opacity-80">
+                AI-powered slang dictionary with voice search
+              </ModernText>
             </div>
-            <div className="md-flex md-gap-sm">
-              <MaterialButton
-                variant="primary"
-                onClick={() => handleSearch()}
-                disabled={isLoading || !searchTerm.trim()}
-                size="large"
-                className="md-button-primary"
-              >
-                {isLoading ? 'Searching...' : 'Search'}
-              </MaterialButton>
-              <MaterialButton
-                variant={isListening ? 'primary' : 'secondary'}
-                onClick={isListening ? stopListening : startListening}
-                disabled={!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)}
-                size="large"
-                className={isListening ? 'md-button-primary' : 'md-button-secondary'}
-              >
-                {isListening ? '🎤 Stop' : '🎤 Voice'}
-              </MaterialButton>
+            <div className="modern-scale-in">
+              <ThemeSwitcher />
             </div>
           </div>
+        </ModernContainer>
+      </header>
 
-          {/* Category Filter */}
-          <div className="md-divider"></div>
-          <div className="md-mt-md">
-            <MaterialTypography variant="body2" className="md-text-secondary md-mb-sm">
-              Filter by category:
-            </MaterialTypography>
-            <div className="md-flex md-gap-sm flex-wrap">
-              <MaterialChip
+      {/* Main Content */}
+      <main className="relative z-10 modern-container modern-p-lg">
+        {/* Modern Search Section */}
+        <div className="modern-slide-up modern-mb-xl">
+          <ModernSearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+            onSearch={() => handleSearch()}
+            loading={isLoading}
+            onVoiceClick={isListening ? stopListening : startListening}
+            isListening={isListening}
+            placeholder="Search for slang terms..."
+          />
+
+          {/* Modern Category Filter */}
+          <div className="modern-glass-card modern-mt-lg">
+            <ModernText className="modern-mb-md font-semibold">Filter by category:</ModernText>
+            <div className="modern-flex modern-gap-sm flex-wrap">
+              <ModernChip
                 label="All"
                 selected={!selectedCategory}
                 onClick={() => setSelectedCategory(null)}
               />
               {availableCategories.map((category) => (
-                <MaterialChip
+                <ModernChip
                   key={category}
                   label={category}
                   selected={selectedCategory === category}
@@ -434,149 +497,145 @@ const AppContent: React.FC = () => {
               ))}
             </div>
           </div>
-        </MaterialCard>
+        </div>
 
-        {/* Definition Display */}
+        {/* Modern Definition Display */}
         {definition && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">
-                  {searchTerm || 'Definition'}
-                </h2>
-                <CategoryBadge category={definition.category} />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => speakText(`${searchTerm}: ${definition.meaning}`)}
-                  className="p-2 text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
-                  aria-label="Speak definition"
-                >
-                  🔊
-                </button>
-                <button
-                  onClick={() => handleToggleFavorite(searchTerm, definition)}
-                  className={`p-2 transition-colors ${favorites.some(fav => fav.term === searchTerm)
-                    ? 'text-yellow-500 hover:text-yellow-600'
-                    : 'text-gray-600 hover:text-yellow-500 dark:text-gray-400 dark:hover:text-yellow-400'
-                    }`}
-                  aria-label="Toggle favorite"
-                >
-                  ⭐
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Meaning:</h3>
-                <p className="text-gray-600 dark:text-gray-400">{definition.meaning}</p>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Example:</h3>
-                <p className="text-gray-600 dark:text-gray-400 italic">"{definition.example}"</p>
-              </div>
-
-              {definition.relatedTerms && definition.relatedTerms.length > 0 && (
-                <RelatedTerms
-                  terms={definition.relatedTerms}
-                  onTermClick={(term) => {
-                    setSearchTerm(term);
-                    handleSearch(term);
-                  }}
-                />
-              )}
-            </div>
+          <div className="modern-bounce-in modern-mb-xl">
+            <ModernDefinitionCard
+              term={searchTerm || 'Definition'}
+              definition={definition}
+              onSpeak={() => speakText(`${searchTerm}: ${definition.meaning}`)}
+              onToggleFavorite={() => handleToggleFavorite(searchTerm, definition)}
+              isFavorite={favorites.some(fav => fav.term === searchTerm)}
+            />
           </div>
         )}
 
-        {/* Word of the Day */}
+        {/* Modern Word of the Day */}
         {wordOfTheDay && (
-          <WordOfTheDay
-            word={wordOfTheDay}
-            onWordClick={(term) => {
-              setSearchTerm(term);
-              handleSearch(term);
-            }}
-          />
+          <div className="modern-fade-in modern-mb-xl">
+            <ModernCard className="modern-hover-glow">
+              <div className="modern-flex-between modern-mb-lg">
+                <div>
+                  <ModernHeading level={3} gradient className="modern-mb-sm">
+                    Word of the Day
+                  </ModernHeading>
+                  <ModernText className="modern-text-sm opacity-80">
+                    Discover new slang every day
+                  </ModernText>
+                </div>
+                <div className="modern-flex modern-gap-sm">
+                  <ModernButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => speakText(`${wordOfTheDay.meaning}`)}
+                    icon={
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      </svg>
+                    }
+                  />
+                  <ModernButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggleFavorite('word-of-day', wordOfTheDay)}
+                    icon={
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.329 1.176l1.519 4.674c.3.921-.755 1.688-1.539 1.175l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.513-1.83-.254-1.539-1.175l1.519-4.674a1 1 0 00-.329-1.176l-3.976-2.888c-.784-.57-.382-1.81.588-1.81h4.915a1 1 0 00.95-.69l1.519-4.674z" />
+                      </svg>
+                    }
+                  />
+                </div>
+              </div>
+              <div className="modern-space-y-lg">
+                <div>
+                  <ModernText className="modern-mb-sm font-semibold">Meaning:</ModernText>
+                  <ModernText className="modern-text-lg">{wordOfTheDay.meaning}</ModernText>
+                </div>
+                <div>
+                  <ModernText className="modern-mb-sm font-semibold">Example:</ModernText>
+                  <ModernText className="modern-text-lg italic">"{wordOfTheDay.example}"</ModernText>
+                </div>
+              </div>
+            </ModernCard>
+          </div>
         )}
 
-        {/* Examples Grid */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold mb-4">Popular Terms</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {filteredExamples.map((example, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setSearchTerm(example.term);
-                  handleSearch(example.term);
-                }}
-                className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-purple-100 dark:hover:bg-purple-900 rounded-lg transition-colors duration-200 text-left"
-              >
-                <div className="font-medium text-gray-900 dark:text-white">{example.term}</div>
-                <CategoryBadge category={example.category} size="sm" />
-              </button>
-            ))}
-          </div>
+        {/* Modern Example Terms Grid */}
+        <div className="modern-slide-up">
+          <ModernCard className="modern-mb-xl">
+            <ModernHeading level={2} gradient className="modern-mb-lg">
+              Explore Slang
+            </ModernHeading>
+            <ModernGrid cols={4} gap="md">
+              {filteredExamples.map((example, index) => (
+                <ModernCard
+                  key={example.term}
+                  interactive
+                  onClick={() => handleSearch(example.term)}
+                  className="modern-hover-lift modern-hover-glow"
+                  style={{
+                    animationDelay: `${index * 0.1}s`
+                  }}
+                >
+                  <ModernHeading level={4} className="modern-mb-sm">
+                    {example.term}
+                  </ModernHeading>
+                  <ModernChip label={example.category} />
+                </ModernCard>
+              ))}
+            </ModernGrid>
+          </ModernCard>
         </div>
+      </main>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-4 justify-center">
-          <button
-            onClick={() => setIsQuizOpen(true)}
-            className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors duration-200"
-          >
-            🧠 Take Quiz
-          </button>
-          <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
-          >
-            📚 History
-          </button>
-          <button
-            onClick={() => setIsFavoritesOpen(true)}
-            className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium transition-colors duration-200"
-          >
-            ⭐ Favorites
-          </button>
-        </div>
-      </MaterialContainer>
+      {/* Modern Floating Action Buttons */}
+      <div className="fixed bottom-6 left-6 z-50 modern-flex flex-col modern-gap-sm">
+        <ModernFAB
+          icon={
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+          onClick={() => setIsSearchHistoryOpen(!isSearchHistoryOpen)}
+          position="bottom-left"
+        />
+        <ModernFAB
+          icon={
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.329 1.176l1.519 4.674c.3.921-.755 1.688-1.539 1.175l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.513-1.83-.254-1.539-1.175l1.519-4.674a1 1 0 00-.329-1.176l-3.976-2.888c-.784-.57-.382-1.81.588-1.81h4.915a1 1 0 00.95-.69l1.519-4.674z" />
+            </svg>
+          }
+          onClick={() => setIsFavoritesOpen(!isFavoritesOpen)}
+          position="bottom-left"
+        />
+        <ModernFAB
+          icon={
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+          }
+          onClick={() => setIsQuizOpen(!isQuizOpen)}
+          position="bottom-left"
+        />
+      </div>
 
       {/* Modals */}
       <SearchHistory
-        history={searchHistory}
-        onTermClick={(term) => {
-          setSearchTerm(term);
-          handleSearch(term);
-        }}
-        onRemove={(id) => {
-          setSearchHistory(prev => prev.filter(item => item.id !== id));
-        }}
-        onClear={() => {
-          setSearchHistory([]);
-          showToast('History cleared', 'info');
-        }}
-        isOpen={isHistoryOpen}
-        onToggle={() => setIsHistoryOpen(!isHistoryOpen)}
+        history={searchHistory || []}
+        onSearch={handleSearch}
+        onClearHistory={handleClearSearchHistory}
+        onRemoveFromHistory={handleRemoveFromSearchHistory}
+        isOpen={isSearchHistoryOpen}
+        onToggle={() => setIsSearchHistoryOpen(!isSearchHistoryOpen)}
       />
 
       <Favorites
-        favorites={favorites}
-        onTermClick={(term) => {
-          setSearchTerm(term);
-          handleSearch(term);
-        }}
-        onRemove={(term) => {
-          setFavorites(prev => prev.filter(fav => fav.term !== term));
-          showToast('Removed from favorites', 'info');
-        }}
-        onClear={() => {
-          setFavorites([]);
-          showToast('Favorites cleared', 'info');
-        }}
+        favorites={favorites || []}
+        onSearch={handleSearch}
+        onClearFavorites={handleClearFavorites}
+        onRemoveFromFavorites={handleRemoveFromFavorites}
         isOpen={isFavoritesOpen}
         onToggle={() => setIsFavoritesOpen(!isFavoritesOpen)}
       />
@@ -594,9 +653,9 @@ const AppContent: React.FC = () => {
       {/* Quiz Modal */}
       {isQuizOpen && (
         <Quiz
-          questions={[]} // Will be populated from user's search history
-          onComplete={handleQuizComplete}
+          questions={[]}
           onClose={() => setIsQuizOpen(false)}
+          onQuizComplete={handleQuizComplete}
         />
       )}
     </div>
