@@ -368,8 +368,8 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen md-bg-background md-text-primary">
       {/* Header */}
-      <MaterialAppBar 
-        title="SlangSupport" 
+      <MaterialAppBar
+        title="SlangSupport"
         subtitle="AI-powered slang dictionary with voice search"
       >
         <ThemeSwitcher />
